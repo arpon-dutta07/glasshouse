@@ -1,0 +1,14 @@
+# Spec Kit and AI Agent Configuration
+.agents/
+.specify/
+
+# Environment and Local Settings
+.env
+.env.local
+*.log
+
+# OS / Editor Files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
