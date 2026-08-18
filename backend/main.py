@@ -1,0 +1,128 @@
+"""Glasshouse Backend API Application."""
+
+import asyncio
+from contextlib import asynccontextmanager
+import logging
+from typing import Optional
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from backend.database import Database
+from backend.device_tracker import DeviceTracker
+from backend.pipeline import Pipeline
+from classifier.classifier import DomainClassifier
+from scoring.engine import ScoringService
+from backend.routes.devices import router as devices_router
+from backend.routes.connections import router as connections_router
+from backend.routes.stats import router as stats_router
+from backend.routes.rules import router as rules_router
+from backend.routes.ws import router as ws_router, manager as ws_manager
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logger = logging.getLogger("glasshouse")
+
+
+class AppState:
+    def __init__(self):
+        self.database: Optional[Database] = None
+        self.classifier: Optional[DomainClassifier] = None
+        self.device_tracker: Optional[DeviceTracker] = None
+        self.pipeline: Optional[Pipeline] = None
+        self.scoring_service: Optional[ScoringService] = None
+        self.db_path: str = "data/glasshouse.db"
+
+
+app_state = AppState()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifecycle manager: initializes DB, rules, scoring, and background tasks."""
+    logger.info("Initializing Glasshouse backend...")
+
+    # 1. Initialize Database
+    app_state.database = Database(db_path=app_state.db_path)
+    await app_state.database.initialize()
+
+    # 2. Initialize Classifier and load rules
+    app_state.classifier = DomainClassifier()
+    app_state.classifier.load_rules(download_remote=False)
+
+    # 3. Load stored custom rules into classifier
+    stored_rules = await app_state.database.get_custom_rules()
+    for rule in stored_rules:
+        if rule["action"] == "allow":
+            app_state.classifier.add_custom_allowlist(rule["domain"])
+        else:
+            app_state.classifier.add_custom_blocklist(rule["domain"], category=rule["category"])
+
+    # 4. Initialize DeviceTracker
+    app_state.device_tracker = DeviceTracker()
+
+    # 5. Initialize Pipeline with WebSocket broadcast hook
+    def broadcast_to_ws(event: dict):
+        # Schedule broadcast on asyncio event loop
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            asyncio.create_task(ws_manager.broadcast(event))
+
+    app_state.pipeline = Pipeline(
+        database=app_state.database,
+        classifier=app_state.classifier,
+        device_tracker=app_state.device_tracker,
+        on_event=broadcast_to_ws,
+    )
+
+    # 6. Initialize and start Scoring Service
+    app_state.scoring_service = ScoringService(
+        database=app_state.database,
+        interval_seconds=60,
+        window_hours=24,
+    )
+    app_state.scoring_service.start()
+
+    logger.info("Glasshouse backend startup complete.")
+    yield
+
+    # Teardown
+    logger.info("Shutting down Glasshouse backend...")
+    if app_state.scoring_service:
+        app_state.scoring_service.stop()
+
+
+app = FastAPI(
+    title="Glasshouse Privacy Observability API",
+    description="Network TLS ClientHello SNI Privacy Classification and Device Scoring Engine",
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+# CORS middleware for Next.js dashboard
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Register routes
+app.include_router(devices_router)
+app.include_router(connections_router)
+app.include_router(stats_router)
+app.include_router(rules_router)
+app.include_router(ws_router)
+
+
+@app.get("/api/health")
+async def health_check():
+    """Health check endpoint."""
+    return {"status": "ok", "service": "glasshouse", "version": "1.0.0"}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)
