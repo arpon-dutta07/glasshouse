@@ -1,0 +1,20 @@
+{
+  "name": "glasshouse-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Passive TLS Network Privacy Observability & Per-Device Score Engine",
+  "scripts": {
+    "dev": "npm --prefix dashboard run dev",
+    "build": "npm --prefix dashboard run build",
+    "start": "npm --prefix dashboard run start",
+    "lint": "npm --prefix dashboard run lint"
+  },
+  "keywords": [
+    "privacy",
+    "network-monitoring",
+    "tls-sni",
+    "iot-security"
+  ],
+  "author": "",
+  "license": "MIT"
+}
