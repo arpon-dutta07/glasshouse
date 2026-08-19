@@ -68,6 +68,14 @@ class Database:
             await db.executescript(SCHEMA)
             await db.commit()
 
+    async def purge_all_data(self):
+        """Deletes all device, connection, and score data. Used to reset after seed/demo data."""
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("DELETE FROM device_scores")
+            await db.execute("DELETE FROM connections")
+            await db.execute("DELETE FROM devices")
+            await db.commit()
+
     async def upsert_device(
         self,
         mac_address: str,

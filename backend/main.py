@@ -3,6 +3,7 @@
 import asyncio
 from contextlib import asynccontextmanager
 import logging
+import threading
 from typing import Optional
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,6 +13,9 @@ from backend.device_tracker import DeviceTracker
 from backend.pipeline import Pipeline
 from classifier.classifier import DomainClassifier
 from scoring.engine import ScoringService
+from capture.sniffer import PacketSniffer
+from capture.tls_parser import SNIRecord
+from capture.interface import detect_active_interface
 from backend.routes.devices import router as devices_router
 from backend.routes.connections import router as connections_router
 from backend.routes.stats import router as stats_router
@@ -32,6 +36,8 @@ class AppState:
         self.device_tracker: Optional[DeviceTracker] = None
         self.pipeline: Optional[Pipeline] = None
         self.scoring_service: Optional[ScoringService] = None
+        self.sniffer: Optional[PacketSniffer] = None
+        self.capture_thread: Optional[threading.Thread] = None
         self.db_path: str = "data/glasshouse.db"
 
 
@@ -84,11 +90,48 @@ async def lifespan(app: FastAPI):
     )
     app_state.scoring_service.start()
 
-    logger.info("Glasshouse backend startup complete.")
+    # 7. Start live packet capture in background thread
+    capture_loop = asyncio.get_event_loop()
+
+    def on_sni_captured(record: SNIRecord):
+        """Callback from sniffer thread — logs and feeds into pipeline."""
+        classification = app_state.classifier.classify(record.sni_domain)
+        logger.info(
+            f"[LIVE] {record.timestamp.strftime('%Y-%m-%dT%H:%M:%S%z')} "
+            f"{record.src_ip} ({record.src_mac or 'unknown-mac'}) -> "
+            f"{record.sni_domain} [{classification.category}]"
+        )
+        asyncio.run_coroutine_threadsafe(
+            app_state.pipeline.process_sni_record(record), capture_loop
+        )
+
+    try:
+        interface = detect_active_interface()
+        app_state.sniffer = PacketSniffer(
+            interface=interface,
+            on_sni_extracted=on_sni_captured,
+        )
+        app_state.capture_thread = threading.Thread(
+            target=app_state.sniffer.start,
+            daemon=True,
+            name="glasshouse-capture",
+        )
+        app_state.capture_thread.start()
+        logger.info(f"Live packet capture started on interface: {interface or 'default'}")
+    except Exception as e:
+        logger.error(
+            f"Failed to start packet capture: {e}. "
+            f"Ensure Npcap is installed (Windows) and the process has admin/root privileges."
+        )
+
+    logger.info("Glasshouse backend startup complete (API + live capture).")
     yield
 
     # Teardown
     logger.info("Shutting down Glasshouse backend...")
+    if app_state.sniffer:
+        app_state.sniffer.is_running = False
+        logger.info("Capture thread signaled to stop.")
     if app_state.scoring_service:
         app_state.scoring_service.stop()
 
