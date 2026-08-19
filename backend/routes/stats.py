@@ -58,7 +58,7 @@ async def get_network_stats(db: Database = Depends(get_db)) -> Dict[str, Any]:
         # Top tracker domains
         cur = await conn.execute(
             """
-            SELECT sni_domain, classification, COUNT(*) as hits
+            SELECT sni_domain as domain, sni_domain, classification as category, classification, COUNT(*) as hits
             FROM connections
             WHERE classification IN ('tracker', 'ad_network')
             GROUP BY sni_domain

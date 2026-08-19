@@ -344,7 +344,7 @@ export default function DeviceDetailPage() {
                       <td className="py-2.5 px-4">
                         <span className="inline-flex items-center gap-1.5 text-slate-400 capitalize">
                           <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
-                          {conn.classification.replace("_", " ")}
+                          {(conn.classification || "unknown").replace(/_/g, " ")}
                         </span>
                       </td>
                       <td className="py-2.5 px-4 text-slate-500">

@@ -45,3 +45,42 @@ async def update_device_name(mac: str, payload: dict, db: Database = Depends(get
     await db.update_device_name(mac, new_name)
     return {"status": "ok", "mac": mac, "device_name": new_name}
 
+
+@router.post("/scan")
+async def scan_network_devices(db: Database = Depends(get_db)):
+    """Actively sweeps local Wi-Fi subnet to discover all connected devices (phones, TVs, laptops, router)."""
+    from backend.main import app_state
+    tracker = app_state.device_tracker
+    if not tracker:
+        raise HTTPException(status_code=500, detail="Device tracker not initialized")
+
+    mapping = tracker.scan_local_subnet()
+    discovered = []
+
+    for ip, mac in mapping.items():
+        vendor = tracker.lookup_vendor(mac)
+        name = tracker.suggest_device_name(mac, vendor=vendor, ip=ip)
+        await db.upsert_device(
+            mac_address=mac,
+            ip_address=ip,
+            device_name=name,
+            vendor=vendor,
+        )
+        discovered.append({"ip": ip, "mac": mac, "name": name, "vendor": vendor})
+
+    # Ensure local PC is also registered
+    if tracker.local_ip:
+        local_mac = tracker.ip_to_mac_cache.get(tracker.local_ip) or f"ip:{tracker.local_ip}"
+        local_vendor = tracker.lookup_vendor(local_mac) if not local_mac.startswith("ip:") else None
+        local_name = tracker.suggest_device_name(local_mac, vendor=local_vendor, ip=tracker.local_ip)
+        await db.upsert_device(
+            mac_address=local_mac,
+            ip_address=tracker.local_ip,
+            device_name=local_name,
+            vendor=local_vendor,
+        )
+
+    all_devices = await db.get_all_devices()
+    return {"status": "ok", "discovered": discovered, "devices": all_devices}
+
+

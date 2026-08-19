@@ -149,7 +149,10 @@ class DeviceTracker:
             name, _, _ = socket.gethostbyaddr(ip)
             if name and name != ip:
                 # Remove common local domain suffixes
-                clean_name = name.replace(".lan", "").replace(".local", "").replace(".home", "")
+                clean_name = name
+                for suffix in [".bbrouter", ".lan", ".local", ".home", ".broadband"]:
+                    clean_name = clean_name.replace(suffix, "")
+                clean_name = clean_name.replace("-", " ").strip()
                 self.hostname_cache[ip] = clean_name
                 return clean_name
         except Exception:
@@ -173,20 +176,25 @@ class DeviceTracker:
         if (ip and ip == self.local_ip) or (ip and ip in ("127.0.0.1", "localhost")):
             return f"This PC ({self.local_hostname})"
 
-        # 2. Try reverse DNS hostname (e.g. Arpan-Laptop, iPhone, Samsung-TV)
+        v = vendor or self.lookup_vendor(mac)
+
+        # 2. Check if default gateway / Wi-Fi router (usually .1)
+        if ip and ip.endswith(".1"):
+            short_v = v.split(",")[0].split("/")[0].strip() if v else "Wi-Fi"
+            return f"{short_v} Router / Gateway"
+
+        # 3. Try reverse DNS hostname (e.g. OnePlus 11R 5G, Arpan-Laptop, iPhone)
         if ip:
             hostname = self.resolve_hostname(ip)
             if hostname and hostname != ip:
                 return hostname
 
-        # 3. Pseudo-MAC fallback
+        # 4. Pseudo-MAC fallback
         if mac.startswith("ip:"):
             host_ip = mac.replace("ip:", "")
             return f"Host ({host_ip})"
 
-        # 4. Use OUI Vendor name
-        v = vendor or self.lookup_vendor(mac)
-
+        # 5. Use OUI Vendor name
         # Extract last 4 hex characters of MAC (e.g. 39:CD)
         last_octets = mac.split(":")[-2:] if ":" in mac else [mac[-4:-2], mac[-2:]]
         suffix = ":".join(o.upper() for o in last_octets) if len(last_octets) == 2 else mac[-4:].upper()
@@ -195,14 +203,14 @@ class DeviceTracker:
             short = v.split(",")[0].split("/")[0].split("Co.")[0].strip()
             for corp_suffix in [
                 " Corporation", " Technologies", " Corp", " Inc.", " Inc",
-                " Ltd", " Electronics", " Semiconductor", " Technology"
+                " Ltd", " Electronics", " Semiconductor", " Technology", " Systems Limited"
             ]:
                 short = short.replace(corp_suffix, "").strip()
 
             if short:
                 return f"{short} Device ({suffix})"
 
-        return f"Unknown Device ({suffix})"
+        return f"Network Device ({suffix})"
 
     def parse_arp_output(self, text: str) -> Dict[str, str]:
         """Parses stdout of arp -a across Windows, Linux, and macOS."""
@@ -265,3 +273,33 @@ class DeviceTracker:
 
         self.refresh_arp_cache()
         return self.ip_to_mac_cache.get(ip)
+
+    def scan_local_subnet(self) -> Dict[str, str]:
+        """Fast concurrent ARP/ping sweep across local /24 subnet to discover all active Wi-Fi devices."""
+        import concurrent.futures
+        local_hostname, local_ip = self.local_hostname, self.local_ip
+        if not local_ip:
+            return self.refresh_arp_cache()
+
+        prefix = ".".join(local_ip.split(".")[:3])
+        ips = [f"{prefix}.{i}" for i in range(1, 255)]
+
+        def probe(ip):
+            try:
+                subprocess.run(
+                    ["ping", "-n", "1", "-w", "150", ip],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    timeout=1,
+                )
+            except Exception:
+                pass
+
+        try:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
+                list(executor.map(probe, ips, timeout=4))
+        except Exception:
+            pass
+
+        return self.refresh_arp_cache()
+

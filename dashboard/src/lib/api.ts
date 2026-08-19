@@ -41,7 +41,9 @@ export interface NetworkStats {
   classification_breakdown: Record<string, number>;
   top_trackers: Array<{
     sni_domain: string;
+    domain?: string;
     classification: string;
+    category?: string;
     hits: number;
   }>;
 }
@@ -154,6 +156,19 @@ export async function renameDevice(mac: string, newName: string): Promise<boolea
   } catch (err) {
     console.error("renameDevice error:", err);
     return false;
+  }
+}
+
+export async function scanNetworkDevices(): Promise<{ discovered: any[]; devices: Device[] } | null> {
+  try {
+    const res = await fetch(`${API_BASE}/api/devices/scan`, {
+      method: "POST",
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    console.error("scanNetworkDevices error:", err);
+    return null;
   }
 }
 
