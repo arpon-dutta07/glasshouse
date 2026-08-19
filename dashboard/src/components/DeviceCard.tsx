@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { Laptop, Smartphone, Tv, Cpu, Wifi, Monitor, Router, Tablet, ArrowRight, Edit2, Check, X, Trash2, ShieldCheck, Activity } from "lucide-react";
+import { Laptop, Smartphone, Tv, Cpu, Wifi, Monitor, Router, Tablet, ArrowRight, Edit2, Check, X, Trash2 } from "lucide-react";
 import { Device, renameDevice, deleteDevice } from "@/lib/api";
 import { ScoreGauge } from "./ScoreGauge";
 
@@ -125,23 +125,25 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({ device, onRenamed, onDel
   const trackerCount = device.current_tracker_count ?? 0;
   const totalCount = device.current_total_count ?? 0;
   const trackerPercent = totalCount > 0 ? Math.round((trackerCount / totalCount) * 100) : 0;
-  const isHost = displayName.toLowerCase().includes("pc") || device.ip_address === "192.168.1.2";
+  const isOnline = device.is_online !== false;
 
   return (
     <Link
       href={`/devices/${encodeURIComponent(device.mac_address)}`}
-      className="group relative block rounded-2xl p-4 radar-panel radar-panel-hover"
+      className="group relative block rounded-2xl p-4 radar-panel radar-panel-hover font-sans"
     >
       <div className="flex items-start justify-between gap-3">
         {/* Left Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2.5 mb-2">
-            <div className="relative w-9 h-9 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 group-hover:border-cyan-500/40 group-hover:shadow-[0_0_10px_rgba(6,182,212,0.2)] transition-all flex-shrink-0">
+            <div className="relative w-9 h-9 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-700 dark:text-cyan-400 group-hover:border-cyan-500 transition-all flex-shrink-0">
               <Icon className="w-4 h-4" />
-              <span
-                className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-[#090c12] animate-pulse"
-                title="Active on Wi-Fi"
-              />
+              {isOnline && (
+                <span
+                  className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-[#090c12]"
+                  title="Online on Wi-Fi"
+                />
+              )}
             </div>
 
             <div className="min-w-0 flex-1">
@@ -157,19 +159,19 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({ device, onRenamed, onDel
                     type="text"
                     value={nameInput}
                     onChange={(e) => setNameInput(e.target.value)}
-                    className="px-2 py-0.5 rounded bg-black/70 border border-cyan-500 text-xs text-white font-semibold focus:outline-none w-full font-mono"
+                    className="px-2 py-0.5 rounded-lg bg-white dark:bg-black/70 border border-cyan-500 text-xs text-slate-900 dark:text-white font-bold focus:outline-none w-full font-mono"
                     autoFocus
                   />
                   <button
                     onClick={handleSaveName}
-                    className="p-1 rounded bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/40"
+                    className="p-1 rounded bg-cyan-100 dark:bg-cyan-500/20 text-cyan-800 dark:text-cyan-300 hover:bg-cyan-200"
                     title="Save name"
                   >
                     <Check className="w-3 h-3" />
                   </button>
                   <button
                     onClick={handleCancelEdit}
-                    className="p-1 rounded bg-white/[0.05] text-slate-400 hover:text-white"
+                    className="p-1 rounded bg-slate-200 dark:bg-white/[0.05] text-slate-700 dark:text-slate-400"
                     title="Cancel"
                   >
                     <X className="w-3 h-3" />
@@ -177,7 +179,7 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({ device, onRenamed, onDel
                 </div>
               ) : (
                 <div className="flex items-center gap-1.5 group/name">
-                  <h3 className="font-semibold text-[13px] text-slate-100 truncate group-hover:text-cyan-300 transition-colors leading-tight">
+                  <h3 className="font-bold text-[14px] text-slate-900 dark:text-slate-100 truncate group-hover:text-cyan-700 dark:group-hover:text-cyan-300 transition-colors leading-tight font-hud">
                     {displayName}
                   </h3>
                   <button
@@ -186,14 +188,14 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({ device, onRenamed, onDel
                       e.stopPropagation();
                       setIsEditing(true);
                     }}
-                    className="p-0.5 text-slate-500 hover:text-cyan-400 opacity-0 group-hover/name:opacity-100 transition-opacity"
+                    className="p-0.5 text-slate-400 hover:text-cyan-600 opacity-0 group-hover/name:opacity-100 transition-opacity"
                     title="Rename device"
                   >
                     <Edit2 className="w-3 h-3" />
                   </button>
                   <button
                     onClick={handleDeleteDevice}
-                    className="p-0.5 text-slate-500 hover:text-rose-400 opacity-0 group-hover/name:opacity-100 transition-opacity"
+                    className="p-0.5 text-slate-400 hover:text-rose-600 opacity-0 group-hover/name:opacity-100 transition-opacity"
                     title="Forget device"
                   >
                     <Trash2 className="w-3 h-3" />
@@ -202,37 +204,43 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({ device, onRenamed, onDel
               )}
 
               <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-[11px] text-slate-400 truncate">
+                <span className="text-[11.5px] font-semibold text-slate-700 dark:text-slate-300 truncate">
                   {device.vendor || "Generic Device"}
                 </span>
-                <span className="text-slate-600">·</span>
-                <span className="text-[10px] font-mono text-emerald-400/90 font-medium">
-                  {isHost ? "SNI Sniffing" : "Connected"}
+                <span className="text-slate-400">·</span>
+                <span
+                  className={`text-[9.5px] font-mono font-bold px-1.5 py-0.2 rounded border ${
+                    isOnline
+                      ? "bg-emerald-100 dark:bg-emerald-500/10 text-emerald-800 dark:text-emerald-400 border-emerald-300 dark:border-emerald-500/30"
+                      : "bg-slate-200 dark:bg-slate-500/10 text-slate-700 dark:text-slate-500 border-slate-300 dark:border-slate-500/30"
+                  }`}
+                >
+                  {isOnline ? "ONLINE" : "OFFLINE"}
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="space-y-1 text-[11px] font-mono text-slate-400 mt-2.5">
+          <div className="space-y-1 text-[11px] font-mono text-slate-700 dark:text-slate-300 mt-2.5">
             <div className="flex justify-between">
-              <span className="text-slate-500">IP</span>
-              <span className="text-slate-200">{device.ip_address || "—"}</span>
+              <span className="text-slate-500 dark:text-slate-400 font-semibold">IP</span>
+              <span className="text-slate-900 dark:text-slate-100 font-bold">{device.ip_address || "—"}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-500">MAC</span>
-              <span className="text-slate-200 truncate">{device.mac_address}</span>
+              <span className="text-slate-500 dark:text-slate-400 font-semibold">MAC</span>
+              <span className="text-slate-800 dark:text-slate-300 truncate font-semibold">{device.mac_address}</span>
             </div>
           </div>
 
           {totalCount > 0 && (
             <div className="mt-2.5 flex items-center gap-2 text-[11px] font-mono">
-              <span className="text-slate-400">
+              <span className="text-slate-700 dark:text-slate-300 font-semibold">
                 {totalCount} handshake{totalCount !== 1 ? "s" : ""}
               </span>
               {trackerCount > 0 && (
                 <>
-                  <span className="text-slate-600">·</span>
-                  <span className="text-rose-400 font-medium">{trackerPercent}% tracking</span>
+                  <span className="text-slate-400">·</span>
+                  <span className="text-rose-700 dark:text-rose-400 font-bold">{trackerPercent}% tracking</span>
                 </>
               )}
             </div>
@@ -244,16 +252,16 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({ device, onRenamed, onDel
           {totalCount > 0 ? (
             <>
               <ScoreGauge score={score} size={76} showLabel={false} />
-              <span className="text-[10px] font-mono mt-1 text-slate-400 flex items-center gap-0.5 group-hover:text-cyan-300 transition-colors">
+              <span className="text-[10.5px] font-mono font-bold mt-1 text-slate-600 dark:text-slate-400 flex items-center gap-0.5 group-hover:text-cyan-700 dark:group-hover:text-cyan-300 transition-colors">
                 Score {score} <ArrowRight className="w-2.5 h-2.5" />
               </span>
             </>
           ) : (
             <div className="text-center py-2 px-1">
-              <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center mx-auto mb-1 text-cyan-400 group-hover:border-cyan-500/40 transition-all">
+              <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center mx-auto mb-1 text-cyan-700 dark:text-cyan-400 group-hover:border-cyan-500 transition-all">
                 <Wifi className="w-4 h-4" />
               </div>
-              <span className="text-[10px] font-mono text-slate-400 group-hover:text-cyan-300 transition-colors flex items-center justify-center gap-0.5">
+              <span className="text-[10px] font-mono font-bold text-slate-700 dark:text-slate-300 group-hover:text-cyan-700 dark:group-hover:text-cyan-300 transition-colors flex items-center justify-center gap-0.5">
                 Profile <ArrowRight className="w-2.5 h-2.5" />
               </span>
             </div>
