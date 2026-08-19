@@ -1,14 +1,14 @@
 "use client";
 
 import React, { useState } from "react";
-import { Shield, ShieldAlert, AlertTriangle, X, Check, Info } from "lucide-react";
+import { Shield, ShieldAlert, AlertTriangle, X, Check, Info, Lock } from "lucide-react";
 import { blockDomain, BlockingStatus } from "@/lib/api";
 
 interface BlockModalProps {
   domain: string;
   category?: string;
   status: BlockingStatus | null;
-  isOpen: boolean;
+  isOpen?: boolean;
   onClose: () => void;
   onBlocked: () => void;
 }
@@ -17,7 +17,7 @@ export const BlockModal: React.FC<BlockModalProps> = ({
   domain,
   category = "tracker",
   status,
-  isOpen,
+  isOpen = true,
   onClose,
   onBlocked,
 }) => {
@@ -56,117 +56,103 @@ export const BlockModal: React.FC<BlockModalProps> = ({
       : "bg-slate-500/20 text-slate-300 border-slate-500/30";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-md rounded-2xl bg-[#0e0e17] border border-white/[0.08] p-6 shadow-2xl shadow-black space-y-5">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md font-mono">
+      <div className="relative w-full max-w-md rounded-2xl radar-panel p-6 shadow-2xl shadow-black space-y-5 border border-cyan-500/30">
+        {/* Close Button */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.05] transition-colors"
+        >
+          <X className="w-4 h-4" />
+        </button>
+
         {/* Header */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isMalicious ? "bg-rose-500/20 text-rose-400" : "bg-red-500/20 text-red-400"}`}>
-              {isMalicious ? <ShieldAlert className="w-5 h-5" /> : <Shield className="w-5 h-5" />}
-            </div>
-            <div>
-              <h3 className="text-base font-semibold text-white tracking-tight">Block Domain</h3>
-              <p className="text-xs text-slate-400 font-mono mt-0.5 truncate max-w-[240px]">
-                {domain}
-              </p>
-            </div>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 flex-shrink-0 shadow-[0_0_12px_rgba(248,113,113,0.2)]">
+            <Lock className="w-5 h-5" />
           </div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-white/[0.05] transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div>
+            <h3 className="text-base font-bold text-white tracking-tight font-hud">
+              BLOCK DOMAIN
+            </h3>
+            <p className="text-xs text-slate-400 font-sans">
+              Add domain to local DNS firewall
+            </p>
+          </div>
         </div>
 
-        {/* Category & Status Banner */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-white/[0.02] border border-white/[0.04]">
-            <span className="text-xs text-slate-400">Current Classification</span>
-            <span className={`text-[11px] font-mono font-medium px-2 py-0.5 rounded-md border capitalize ${categoryColor}`}>
-              {category.replace(/_/g, " ")}
+        {/* Target Domain Summary */}
+        <div className="p-3.5 rounded-xl bg-black/50 border border-white/[0.06] space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] uppercase font-bold text-slate-500">TARGET DOMAIN</span>
+            <span className={`px-2 py-0.5 rounded text-[9px] font-bold border uppercase ${categoryColor}`}>
+              {category}
             </span>
           </div>
-
-          {/* Mode Notice Banner */}
-          {isTestMode ? (
-            <div className="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-xs space-y-1">
-              <div className="flex items-center gap-1.5 font-medium">
-                <Info className="w-4 h-4 flex-shrink-0" />
-                <span>Test Mode Active (Simulated)</span>
-              </div>
-              <p className="text-[11px] text-cyan-300/80 pl-5">
-                This block is tracked inside Glasshouse. Your Windows hosts file will <strong>not</strong> be modified.
-              </p>
-            </div>
-          ) : (
-            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs space-y-1">
-              <div className="flex items-center gap-1.5 font-medium">
-                <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-                <span>Live Block Mode (System Hosts File)</span>
-              </div>
-              <p className="text-[11px] text-amber-300/80 pl-5">
-                This will add <code>0.0.0.0 {domain}</code> to <code>C:\Windows\System32\drivers\etc\hosts</code>.
-              </p>
-            </div>
-          )}
-
-          {/* First Party Explicit Warning */}
-          {isFirstParty && (
-            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs space-y-1">
-              <div className="flex items-center gap-1.5 font-medium">
-                <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-                <span>Caution: First-Party Domain</span>
-              </div>
-              <p className="text-[11px] text-rose-300/80 pl-5">
-                This is the primary domain of an application or website. Blocking it will likely break the app or service.
-              </p>
-            </div>
-          )}
-
-          {/* Consequence copy */}
-          <p className="text-xs text-slate-400 leading-relaxed">
-            Blocking this domain means your device can no longer reach it. Some app features might stop working if they depend on it.
-          </p>
-
-          {/* Reason Input */}
-          <div>
-            <label className="block text-[10px] uppercase font-medium text-slate-500 mb-1">
-              Reason (Optional)
-            </label>
-            <input
-              type="text"
-              placeholder="e.g. Suspicious background telemetry"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.06] text-xs text-slate-200 focus:outline-none focus:border-red-500/40 font-mono placeholder:text-slate-600"
-            />
-          </div>
-
-          {error && (
-            <div className="p-2.5 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-mono">
-              {error}
-            </div>
-          )}
+          <p className="font-bold text-sm text-cyan-300 truncate">{domain}</p>
         </div>
 
+        {/* First Party Warning Guardrail */}
+        {isFirstParty && (
+          <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs flex items-start gap-2.5 font-sans">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5 text-amber-400" />
+            <div className="space-y-1">
+              <p className="font-semibold text-amber-200">First-Party Domain Warning</p>
+              <p className="text-[11px] text-amber-300/80 leading-relaxed">
+                Blocking this domain might break core functionality or login for apps using it.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Mode Info Notice */}
+        <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] text-xs text-slate-400 space-y-1 font-sans">
+          <div className="flex items-center gap-1.5 font-medium text-slate-300 font-hud">
+            <Info className="w-3.5 h-3.5 text-cyan-400" />
+            <span>{isTestMode ? "Simulated Test Mode" : "Live Hosts File Mode"}</span>
+          </div>
+          <p className="text-[11px] text-slate-500 leading-relaxed">
+            {isTestMode
+              ? "This action will be simulated and marked in the radar stream without editing your system hosts file."
+              : `This domain will be mapped to 0.0.0.0 in your OS hosts file (${status?.hosts_path || "hosts"}).`}
+          </p>
+        </div>
+
+        {/* Optional Reason Input */}
+        <div className="space-y-1">
+          <label className="block text-[10px] uppercase font-bold text-slate-400 font-sans">
+            Reason / Custom Note (Optional)
+          </label>
+          <input
+            type="text"
+            placeholder="e.g. Telemetry beacon from third party"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            className="w-full px-3 py-2 rounded-xl bg-[#090d16]/80 border border-white/[0.08] text-xs text-slate-100 focus:outline-none focus:border-cyan-500/50 font-mono placeholder:text-slate-600"
+          />
+        </div>
+
+        {error && (
+          <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-xs font-sans">
+            {error}
+          </div>
+        )}
+
         {/* Action Buttons */}
-        <div className="flex items-center justify-end gap-2.5 pt-2">
+        <div className="flex items-center justify-end gap-2 pt-2">
           <button
-            type="button"
             onClick={onClose}
             disabled={loading}
-            className="px-4 py-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 text-xs font-medium transition-colors"
+            className="px-3.5 py-2 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] text-slate-400 hover:text-white text-xs font-bold font-mono transition-colors"
           >
-            Cancel
+            CANCEL
           </button>
           <button
-            type="button"
             onClick={handleConfirmBlock}
             disabled={loading}
-            className="px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white text-xs font-medium transition-colors shadow-lg shadow-red-500/20 disabled:opacity-50 flex items-center gap-1.5"
+            className="px-4 py-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/40 text-xs font-bold font-mono transition-all disabled:opacity-50 flex items-center gap-1.5 shadow-[0_0_10px_rgba(248,113,113,0.2)]"
           >
-            {loading ? "Blocking..." : "Confirm Block"}
+            {loading ? "BLOCKING..." : "CONFIRM BLOCK"}
           </button>
         </div>
       </div>
