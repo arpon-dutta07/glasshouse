@@ -14,8 +14,19 @@ def get_db() -> Database:
 
 @router.get("")
 async def list_devices(db: Database = Depends(get_db)):
-    """Returns all registered devices on the network."""
+    """Returns all registered devices on the network with their latest privacy scores."""
     devices = await db.get_all_devices()
+    latest_scores = await db.get_latest_scores()
+    for dev in devices:
+        mac = dev.get("mac_address", "")
+        if mac in latest_scores:
+            dev["current_score"] = latest_scores[mac]["score"]
+            dev["current_tracker_count"] = latest_scores[mac]["tracker_count"]
+            dev["current_total_count"] = latest_scores[mac]["total_count"]
+        else:
+            dev["current_score"] = 100
+            dev["current_tracker_count"] = 0
+            dev["current_total_count"] = 0
     return {"devices": devices, "count": len(devices)}
 
 
@@ -28,6 +39,10 @@ async def get_device(mac: str, db: Database = Depends(get_db)):
 
     scores = await db.get_score_history(mac, limit=50)
     recent_conns = await db.get_recent_connections(limit=50, device_mac=mac)
+    latest_score = scores[0] if scores else None
+    device["current_score"] = latest_score["score"] if latest_score else 100
+    device["current_tracker_count"] = latest_score["tracker_count"] if latest_score else 0
+    device["current_total_count"] = latest_score["total_count"] if latest_score else 0
 
     return {
         "device": device,
@@ -70,7 +85,7 @@ async def scan_network_devices(db: Database = Depends(get_db)):
 
     # Ensure local PC is also registered
     if tracker.local_ip:
-        local_mac = tracker.ip_to_mac_cache.get(tracker.local_ip) or f"ip:{tracker.local_ip}"
+        local_mac = tracker.local_mac or tracker.ip_to_mac_cache.get(tracker.local_ip) or f"ip:{tracker.local_ip}"
         local_vendor = tracker.lookup_vendor(local_mac) if not local_mac.startswith("ip:") else None
         local_name = tracker.suggest_device_name(local_mac, vendor=local_vendor, ip=tracker.local_ip)
         await db.upsert_device(
@@ -79,6 +94,9 @@ async def scan_network_devices(db: Database = Depends(get_db)):
             device_name=local_name,
             vendor=local_vendor,
         )
+
+    # Clean up any obsolete pseudo-MACs for which a physical MAC exists
+    await db.purge_pseudo_devices()
 
     all_devices = await db.get_all_devices()
     return {"status": "ok", "discovered": discovered, "devices": all_devices}

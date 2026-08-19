@@ -96,6 +96,12 @@ class Database:
             await db.executescript(SCHEMA)
             await db.commit()
 
+    async def purge_pseudo_devices(self):
+        """Purges obsolete pseudo-MAC entries when real devices exist."""
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("DELETE FROM devices WHERE mac_address LIKE 'ip:%'")
+            await db.commit()
+
     async def purge_all_data(self):
         """Deletes all device, connection, and score data. Used to reset after seed/demo data."""
         async with aiosqlite.connect(self.db_path) as db:

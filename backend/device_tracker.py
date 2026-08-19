@@ -83,9 +83,10 @@ def _load_ieee_vendors() -> Dict[str, str]:
 
 
 def _get_local_machine_info():
-    """Detects local hostname and outbound IP address."""
+    """Detects local hostname, outbound IP address, and physical MAC address."""
     hostname = socket.gethostname()
     local_ip = None
+    local_mac = None
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(("8.8.8.8", 53))
@@ -93,7 +94,25 @@ def _get_local_machine_info():
         s.close()
     except Exception:
         pass
-    return hostname, local_ip
+
+    # Try resolving physical MAC matching the active outbound local_ip
+    try:
+        import psutil
+        for iface_name, addrs in psutil.net_if_addrs().items():
+            has_ip = any(a.address == local_ip for a in addrs)
+            if has_ip:
+                for a in addrs:
+                    if getattr(a, 'family', None) == psutil.AF_LINK or (a.address and ("-" in a.address or ":" in a.address) and len(a.address) in (17, 12)):
+                        candidate = normalize_mac(a.address)
+                        if candidate and candidate != "00:00:00:00:00:00":
+                            local_mac = candidate
+                            break
+            if local_mac:
+                break
+    except Exception:
+        pass
+
+    return hostname, local_ip, local_mac
 
 
 def normalize_mac(mac: str) -> str:
@@ -116,7 +135,10 @@ class DeviceTracker:
         self.ip_to_mac_cache: Dict[str, str] = {}
         self.mac_to_ip_cache: Dict[str, str] = {}
         self.hostname_cache: Dict[str, str] = {}
-        self.local_hostname, self.local_ip = _get_local_machine_info()
+        self.local_hostname, self.local_ip, self.local_mac = _get_local_machine_info()
+        if self.local_ip and self.local_mac:
+            self.ip_to_mac_cache[self.local_ip] = self.local_mac
+            self.mac_to_ip_cache[self.local_mac] = self.local_ip
         self._domain_history: Dict[str, Set[str]] = {}
 
     def lookup_vendor(self, mac: str) -> Optional[str]:
