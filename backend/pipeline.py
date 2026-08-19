@@ -48,7 +48,12 @@ class Pipeline:
             src_mac = self.device_tracker.resolve_mac_for_ip(record.src_ip)
         
         device_mac = src_mac or f"ip:{record.src_ip}"
-        vendor = self.device_tracker.lookup_vendor(device_mac) if src_mac else "Unknown Host"
+
+        # Record domain for device type pattern matching
+        self.device_tracker.record_domain(device_mac, record.sni_domain)
+
+        # Resolve vendor (always re-resolve to backfill previously-unknown devices)
+        vendor = self.device_tracker.lookup_vendor(device_mac) if src_mac else None
         device_name = self.device_tracker.suggest_device_name(device_mac, vendor=vendor, ip=record.src_ip)
 
         await self.database.upsert_device(

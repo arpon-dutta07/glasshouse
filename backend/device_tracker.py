@@ -1,199 +1,88 @@
-"""Device identification, IP-to-MAC resolution, and MAC OUI vendor lookup."""
+"""Device identification, IP-to-MAC resolution, and MAC OUI vendor lookup.
+
+Uses the mac-vendor-lookup package for comprehensive IEEE OUI resolution (~30K vendors),
+with a curated fallback dictionary for offline/edge cases.
+"""
 
 import os
 import re
-import sys
 import subprocess
 import logging
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Set
 
 logger = logging.getLogger(__name__)
 
-# Curated top IEEE MAC OUI prefixes (first 6 hex chars normalized without colons/dashes)
-CURATED_OUI: Dict[str, str] = {
+# Try to import mac-vendor-lookup for comprehensive OUI resolution
+try:
+    from mac_vendor_lookup import MacLookup, VendorNotFoundError
+    _mac_lookup = MacLookup()
+    _HAS_MAC_LOOKUP = True
+except ImportError:
+    _mac_lookup = None
+    _HAS_MAC_LOOKUP = False
+    logger.warning("mac-vendor-lookup not installed; falling back to curated OUI table")
+
+
+# Compact curated fallback for common home-network OUI prefixes
+_CURATED_OUI: Dict[str, str] = {
     # Apple
-    "000393": "Apple, Inc.",
-    "000502": "Apple, Inc.",
-    "000a27": "Apple, Inc.",
-    "000a95": "Apple, Inc.",
-    "000d93": "Apple, Inc.",
-    "0010fa": "Apple, Inc.",
-    "001124": "Apple, Inc.",
-    "001451": "Apple, Inc.",
-    "0016cb": "Apple, Inc.",
-    "0017f2": "Apple, Inc.",
-    "0019e3": "Apple, Inc.",
-    "001b63": "Apple, Inc.",
-    "001c43": "Apple, Inc.",
-    "001cb3": "Apple, Inc.",
-    "001d4f": "Apple, Inc.",
-    "001e52": "Apple, Inc.",
-    "001ec2": "Apple, Inc.",
-    "001f5b": "Apple, Inc.",
-    "001ff3": "Apple, Inc.",
-    "0021e9": "Apple, Inc.",
-    "002241": "Apple, Inc.",
-    "002312": "Apple, Inc.",
-    "002332": "Apple, Inc.",
-    "00236c": "Apple, Inc.",
-    "0023df": "Apple, Inc.",
-    "002436": "Apple, Inc.",
-    "002500": "Apple, Inc.",
-    "00254b": "Apple, Inc.",
-    "0025bc": "Apple, Inc.",
-    "002608": "Apple, Inc.",
-    "00264a": "Apple, Inc.",
-    "0026b0": "Apple, Inc.",
-    "0026bb": "Apple, Inc.",
-    "a483e7": "Apple, Inc.",
-    "f01898": "Apple, Inc.",
-    "f4f15a": "Apple, Inc.",
-    "3c0754": "Apple, Inc.",
-    "406c8f": "Apple, Inc.",
-    "acde48": "Apple, Inc.",
-    "bc5436": "Apple, Inc.",
-    "dc2b61": "Apple, Inc.",
-
+    "0026bb": "Apple, Inc.", "a483e7": "Apple, Inc.", "f01898": "Apple, Inc.",
+    "3c0754": "Apple, Inc.", "406c8f": "Apple, Inc.", "acde48": "Apple, Inc.",
+    "bc5436": "Apple, Inc.", "dc2b61": "Apple, Inc.", "f4f15a": "Apple, Inc.",
     # Samsung
-    "000278": "Samsung Electronics",
-    "0007ab": "Samsung Electronics",
-    "000918": "Samsung Electronics",
-    "000dae": "Samsung Electronics",
-    "001247": "Samsung Electronics",
-    "0012fb": "Samsung Electronics",
-    "001377": "Samsung Electronics",
-    "001599": "Samsung Electronics",
-    "0015b9": "Samsung Electronics",
-    "00166b": "Samsung Electronics",
-    "00166c": "Samsung Electronics",
-    "0017c9": "Samsung Electronics",
-    "0017d5": "Samsung Electronics",
-    "0018af": "Samsung Electronics",
-    "508569": "Samsung Electronics",
-    "606c66": "Samsung Electronics",
-    "745e1c": "Samsung Electronics",
-    "842519": "Samsung Electronics",
-    "9439e5": "Samsung Electronics",
-    "a00798": "Samsung Electronics",
-    "b85a73": "Samsung Electronics",
-    "e47cf9": "Samsung Electronics",
-
-    # Google / Alphabet
-    "001a11": "Google, Inc.",
-    "3c5ab4": "Google, Inc.",
-    "546009": "Google, Inc.",
-    "702c1f": "Google, Inc.",
-    "94ebcd": "Google, Inc.",
-    "d86c63": "Google, Inc.",
-    "f40304": "Google, Inc.",
-    "f4f5d8": "Google, Inc.",
-
+    "508569": "Samsung Electronics", "606c66": "Samsung Electronics",
+    "745e1c": "Samsung Electronics", "842519": "Samsung Electronics",
+    "a00798": "Samsung Electronics", "e47cf9": "Samsung Electronics",
+    # Google
+    "3c5ab4": "Google, Inc.", "546009": "Google, Inc.", "f4f5d8": "Google, Inc.",
     # Amazon
-    "00bb3a": "Amazon Technologies",
-    "18742e": "Amazon Technologies",
-    "34d270": "Amazon Technologies",
-    "44650d": "Amazon Technologies",
-    "50dc79": "Amazon Technologies",
-    "6837e9": "Amazon Technologies",
-    "74c246": "Amazon Technologies",
-    "84d6d0": "Amazon Technologies",
-    "ac63be": "Amazon Technologies",
-    "cc9e00": "Amazon Technologies",
-    "fc65de": "Amazon Technologies",
-
-    # Espressif (IoT smart devices, ESP8266/ESP32)
-    "240ac4": "Espressif Inc.",
-    "246f28": "Espressif Inc.",
-    "24b2de": "Espressif Inc.",
-    "30aea4": "Espressif Inc.",
-    "840d8e": "Espressif Inc.",
-    "84cca8": "Espressif Inc.",
-    "84f3eb": "Espressif Inc.",
-    "a020a6": "Espressif Inc.",
-    "ac67b2": "Espressif Inc.",
-    "bcddc2": "Espressif Inc.",
-    "cc50e3": "Espressif Inc.",
-    "dc4f22": "Espressif Inc.",
-
-    # Raspberry Pi Foundation
-    "b827eb": "Raspberry Pi Foundation",
-    "dca632": "Raspberry Pi Foundation",
-    "e45f01": "Raspberry Pi Foundation",
-    "28cdc1": "Raspberry Pi Foundation",
-
+    "44650d": "Amazon Technologies", "6837e9": "Amazon Technologies",
+    "fc65de": "Amazon Technologies", "ac63be": "Amazon Technologies",
+    # Espressif (IoT)
+    "240ac4": "Espressif Inc.", "84cca8": "Espressif Inc.",
+    "a020a6": "Espressif Inc.", "cc50e3": "Espressif Inc.",
+    # Raspberry Pi
+    "b827eb": "Raspberry Pi Foundation", "dca632": "Raspberry Pi Foundation",
+    "e45f01": "Raspberry Pi Foundation", "28cdc1": "Raspberry Pi Foundation",
     # TP-Link
-    "000ae0": "TP-Link Technologies",
-    "001478": "TP-Link Technologies",
-    "0019e0": "TP-Link Technologies",
-    "002127": "TP-Link Technologies",
-    "0023cd": "TP-Link Technologies",
-    "002586": "TP-Link Technologies",
-    "002719": "TP-Link Technologies",
-    "50c7bf": "TP-Link Technologies",
-
-    # Sony
-    "00014a": "Sony Interactive / Corp",
-    "00041f": "Sony Interactive / Corp",
-    "0013a9": "Sony Interactive / Corp",
-    "0019c5": "Sony Interactive / Corp",
-    "001dba": "Sony Interactive / Corp",
-    "0024be": "Sony Interactive / Corp",
-    "709e29": "Sony Interactive / Corp",
-
-    # LG Electronics
-    "0005c9": "LG Electronics",
-    "001417": "LG Electronics",
-    "0019a1": "LG Electronics",
-    "001c62": "LG Electronics",
-    "001e75": "LG Electronics",
-    "001f6b": "LG Electronics",
-    "10f96f": "LG Electronics",
-
-    # Microsoft
-    "0003ff": "Microsoft Corp",
-    "000d3a": "Microsoft Corp",
-    "00125a": "Microsoft Corp",
-    "00155d": "Microsoft Corp",
-    "0017fa": "Microsoft Corp",
-    "001d42": "Microsoft Corp",
-    "002248": "Microsoft Corp",
-    "0025ae": "Microsoft Corp",
-    "281878": "Microsoft Corp",
-    "7ce9d3": "Microsoft Corp",
-
-    # Intel
-    "0002b3": "Intel Corporate",
-    "000347": "Intel Corporate",
-    "000423": "Intel Corporate",
-    "0007e9": "Intel Corporate",
-    "000c76": "Intel Corporate",
-    "000e0c": "Intel Corporate",
-    "001302": "Intel Corporate",
-    "0013e8": "Intel Corporate",
-    "001500": "Intel Corporate",
-
+    "50c7bf": "TP-Link Technologies", "002127": "TP-Link Technologies",
     # Roku
-    "000d4b": "Roku, Inc.",
-    "080581": "Roku, Inc.",
-    "20dfb9": "Roku, Inc.",
-    "ac3a7a": "Roku, Inc.",
-    "d83134": "Roku, Inc.",
-
+    "080581": "Roku, Inc.", "d83134": "Roku, Inc.", "ac3a7a": "Roku, Inc.",
     # Xiaomi
-    "009ee8": "Xiaomi Communications",
-    "04cf8c": "Xiaomi Communications",
-    "0c1dae": "Xiaomi Communications",
-    "14f65a": "Xiaomi Communications",
-    "185936": "Xiaomi Communications",
-    "286c07": "Xiaomi Communications",
-    "34ce00": "Xiaomi Communications",
-    "50642b": "Xiaomi Communications",
-    "640980": "Xiaomi Communications",
-    "7802f8": "Xiaomi Communications",
-    "7c49eb": "Xiaomi Communications",
-    "8cbebe": "Xiaomi Communications",
+    "7802f8": "Xiaomi Communications", "286c07": "Xiaomi Communications",
+    "640980": "Xiaomi Communications", "50642b": "Xiaomi Communications",
+    # Microsoft
+    "001d42": "Microsoft Corp", "281878": "Microsoft Corp",
+    # Intel
+    "000e0c": "Intel Corporate", "001500": "Intel Corporate",
+    # Sony
+    "001dba": "Sony Interactive", "709e29": "Sony Interactive",
+    # LG
+    "001e75": "LG Electronics", "10f96f": "LG Electronics",
+    # Realtek (common Wi-Fi chipsets)
+    "9c2f9d": "Realtek Semiconductor", "e4a8df": "Realtek Semiconductor",
+    # Qualcomm
+    "0026b6": "Qualcomm", "8c0f6f": "Qualcomm",
+    # Huawei
+    "e43e69": "Huawei Technologies", "c8d15e": "Huawei Technologies",
+    # OnePlus
+    "94652d": "OnePlus Technology",
 }
+
+# Traffic-pattern domain sets for device type guessing
+_APPLE_DOMAINS = {"apple.com", "icloud.com", "apple-dns.net", "mzstatic.com", "apple.news"}
+_ANDROID_DOMAINS = {"googleapis.com", "google.com", "gstatic.com", "android.com", "android.clients.google.com"}
+_WINDOWS_DOMAINS = {"microsoft.com", "windowsupdate.com", "windows.net", "live.com", "msn.com"}
+_SMART_TV_DOMAINS = {"samsungcloudsolution.com", "samsungads.com", "roku.com", "lgtvsdp.com", "lgappstv.com"}
+_IOT_DOMAINS = {"iot.espressif.com", "pool.ntp.org", "devicehub.io"}
+
+# Vendor keywords for device type classification
+_MOBILE_VENDORS = {"apple", "samsung", "xiaomi", "huawei", "oneplus", "oppo", "vivo", "motorola", "nokia", "realme"}
+_LAPTOP_VENDORS = {"apple", "dell", "lenovo", "hp", "asus", "acer", "microsoft", "intel"}
+_TV_VENDORS = {"roku", "sony interactive", "lg electronics", "vizio", "tcl", "hisense"}
+_IOT_VENDORS = {"espressif", "raspberry pi", "tuya", "shenzhen", "sonoff"}
+_ROUTER_VENDORS = {"tp-link", "netgear", "asus", "cisco", "ubiquiti", "linksys", "d-link", "arris"}
 
 
 def normalize_mac(mac: str) -> str:
@@ -208,34 +97,132 @@ class DeviceTracker:
     """Tracks active LAN devices, maps IP <-> MAC addresses, and resolves vendors."""
 
     def __init__(self, oui_db: Optional[Dict[str, str]] = None):
-        self.oui_db = oui_db or CURATED_OUI
+        self.oui_db = oui_db or _CURATED_OUI
         self.ip_to_mac_cache: Dict[str, str] = {}
         self.mac_to_ip_cache: Dict[str, str] = {}
+        self._domain_history: Dict[str, Set[str]] = {}  # mac -> set of observed domains
 
     def lookup_vendor(self, mac: str) -> Optional[str]:
-        """Resolves MAC address OUI prefix to manufacturer name."""
+        """Resolves MAC address OUI prefix to manufacturer name.
+
+        Uses mac-vendor-lookup package (full IEEE DB) as primary,
+        falls back to curated dictionary if package unavailable.
+        """
         cleaned = re.sub(r"[^0-9a-fA-F]", "", mac).lower()
         if len(cleaned) < 6:
             return None
 
+        # 1. Try comprehensive mac-vendor-lookup package
+        if _HAS_MAC_LOOKUP:
+            try:
+                vendor = _mac_lookup.lookup(mac)
+                if vendor:
+                    return vendor
+            except (VendorNotFoundError, Exception):
+                pass
+
+        # 2. Fallback to curated OUI dict
         oui_prefix = cleaned[:6]
-        return self.oui_db.get(oui_prefix, "Generic Network Device")
+        result = self.oui_db.get(oui_prefix)
+        if result:
+            return result
+
+        return None
+
+    def guess_device_type(self, vendor: Optional[str] = None, mac: Optional[str] = None) -> str:
+        """Guesses device type based on vendor name and observed traffic patterns.
+
+        Returns one of: "Phone", "Laptop", "Smart TV", "IoT", "Router", "Streaming", "Tablet", "Device"
+        """
+        v = (vendor or "").lower()
+
+        # Check observed domains for this MAC
+        domains_seen: Set[str] = set()
+        if mac and mac in self._domain_history:
+            domains_seen = self._domain_history[mac]
+
+        # Traffic-pattern based guessing (secondary signal)
+        apple_score = sum(1 for d in domains_seen if any(d.endswith(ad) for ad in _APPLE_DOMAINS))
+        android_score = sum(1 for d in domains_seen if any(d.endswith(ad) for ad in _ANDROID_DOMAINS))
+        windows_score = sum(1 for d in domains_seen if any(d.endswith(wd) for wd in _WINDOWS_DOMAINS))
+        tv_score = sum(1 for d in domains_seen if any(d.endswith(td) for td in _SMART_TV_DOMAINS))
+
+        # Vendor-based type (primary signal)
+        if any(kw in v for kw in _TV_VENDORS):
+            return "Smart TV"
+        if any(kw in v for kw in _IOT_VENDORS):
+            return "IoT"
+        if any(kw in v for kw in _ROUTER_VENDORS) and "apple" not in v:
+            return "Router"
+
+        # For ambiguous vendors (Apple, Samsung, etc.), use traffic patterns
+        if "apple" in v:
+            if tv_score > 0:
+                return "Apple TV"
+            return "iPhone/Mac"
+        if any(kw in v for kw in {"samsung", "xiaomi", "huawei", "oneplus", "oppo", "vivo", "motorola", "realme"}):
+            return "Phone"
+
+        # Traffic-pattern fallback
+        if apple_score > android_score and apple_score > 0:
+            return "iPhone/Mac"
+        if android_score > apple_score and android_score > 0:
+            return "Android"
+        if windows_score > 0:
+            return "PC"
+        if tv_score > 0:
+            return "Smart TV"
+
+        # Generic vendor-based
+        if any(kw in v for kw in _LAPTOP_VENDORS):
+            return "Laptop"
+
+        return "Device"
+
+    def record_domain(self, mac: str, domain: str):
+        """Records an observed domain for a MAC address (used for device type guessing)."""
+        mac = mac.lower().strip()
+        if mac not in self._domain_history:
+            self._domain_history[mac] = set()
+        # Keep only the root domain for pattern matching
+        parts = domain.lower().split(".")
+        if len(parts) >= 2:
+            root = ".".join(parts[-2:])
+            self._domain_history[mac].add(root)
+        self._domain_history[mac].add(domain.lower())
 
     def suggest_device_name(self, mac: str, vendor: Optional[str] = None, ip: Optional[str] = None) -> str:
         """Generates a friendly human-readable name for an identified device."""
-        v = vendor or self.lookup_vendor(mac) or "Device"
-        short_vendor = v.split(",")[0].split("/")[0].strip()
+        v = vendor or self.lookup_vendor(mac)
+        device_type = self.guess_device_type(vendor=v, mac=mac)
+
+        # Build short vendor prefix
+        if v:
+            # Clean up vendor name for display
+            short = v.split(",")[0].split("/")[0].split("Co.")[0].strip()
+            # Remove redundant suffixes
+            for suffix in [" Corporation", " Technologies", " Corp", " Inc.", " Inc", " Ltd", " Electronics", " Semiconductor"]:
+                short = short.replace(suffix, "").strip()
+        else:
+            short = "Unknown"
+
+        # Get last two octets for uniqueness
         last_octets = mac.split(":")[-2:] if ":" in mac else [mac[-4:-2], mac[-2:]]
-        suffix = ":".join(last_octets).upper()
-        return f"{short_vendor} ({suffix})"
+        suffix = ":".join(o.upper() for o in last_octets)
+
+        # Build name: "Apple iPhone/Mac (39:CD)" or "Samsung Phone (39:CD)"
+        if device_type != "Device" and short != "Unknown":
+            return f"{short} {device_type} ({suffix})"
+        elif short != "Unknown":
+            return f"{short} Device ({suffix})"
+        else:
+            return f"Unknown Device ({suffix})"
 
     def parse_arp_output(self, text: str) -> Dict[str, str]:
         """Parses stdout of arp -a across Windows, Linux, and macOS."""
         mapping = {}
-        # Match lines like: 192.168.1.100  00-11-22-33-44-55  dynamic
-        # or (192.168.1.100) at 00:11:22:33:44:55 on en0
         ip_mac_pattern = re.compile(
-            r"(?:\(?(\d{1,3}(?:\.\d{1,3}){3})\)?)\s+(?:at\s+)?([0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2})"
+            r"(?:\(?([\d]{1,3}(?:\.[\d]{1,3}){3})\)?)[\s]+(?:at\s+)?([0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2}[:-][0-9a-fA-F]{2})"
         )
         for line in text.splitlines():
             match = ip_mac_pattern.search(line)
@@ -250,7 +237,6 @@ class DeviceTracker:
     def parse_proc_net_arp(self, text: str) -> Dict[str, str]:
         """Parses Linux /proc/net/arp file content."""
         mapping = {}
-        # Header: IP address       HW type     Flags       HW address            Mask     Device
         for line in text.splitlines()[1:]:
             parts = line.split()
             if len(parts) >= 4:
@@ -264,7 +250,6 @@ class DeviceTracker:
     def parse_dnsmasq_leases(self, text: str) -> Dict[str, Dict[str, str]]:
         """Parses dnsmasq.leases file to extract (ip, mac, hostname)."""
         leases = {}
-        # Format: timestamp mac ip hostname client-id
         for line in text.splitlines():
             parts = line.split()
             if len(parts) >= 4:
