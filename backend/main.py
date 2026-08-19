@@ -128,11 +128,14 @@ async def lifespan(app: FastAPI):
                         timestamp=now,
                     )
 
+                # Sync connection & disconnection session records
+                active_macs = app_state.device_tracker.get_active_macs()
+                await app_state.database.sync_device_sessions(active_macs, now)
                 await app_state.database.purge_pseudo_devices()
             except Exception as e:
                 logger.debug(f"Error during network monitor loop: {e}")
 
-            await asyncio.sleep(8)
+            await asyncio.sleep(10)
 
     asyncio.create_task(periodic_network_device_monitor())
 

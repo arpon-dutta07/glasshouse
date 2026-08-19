@@ -1,117 +1,115 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Outfit:wght@400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Outfit:wght@400;500;600;700;800;900&display=swap');
 @import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
 
 @layer base {
   :root {
-    --background: #090c12;
-    --background-subtle: #0d121c;
-    --foreground: #e2e8f0;
+    /* Light Theme (Default when light class is active) */
+    --background: #f1f5f9;
+    --background-subtle: #e2e8f0;
+    --foreground: #090d16;
+    --foreground-muted: #334155;
+    --foreground-dim: #64748b;
+    --card: #ffffff;
+    --card-hover: #f8fafc;
+    --card-border: #cbd5e1;
+    --border: #cbd5e1;
+    --border-hover: #0891b2;
+    --accent: #0891b2;
+    --accent-glow: rgba(8, 145, 178, 0.2);
+    --accent-muted: rgba(8, 145, 178, 0.08);
+
+    /* Category colors for light mode (High Contrast WCAG AA) */
+    --color-first-party: #15803d;
+    --color-tracker: #dc2626;
+    --color-ad-network: #d97706;
+    --color-malicious: #b91c1c;
+    --color-unknown: #475569;
+  }
+
+  .dark {
+    /* Dark Theme */
+    --background: #080b10;
+    --background-subtle: #0d1420;
+    --foreground: #f8fafc;
     --foreground-muted: #94a3b8;
     --foreground-dim: #64748b;
-    --card: rgba(15, 22, 36, 0.65);
-    --card-hover: rgba(22, 32, 52, 0.75);
-    --card-solid: #0f1624;
+    --card: rgba(13, 19, 31, 0.85);
+    --card-hover: rgba(18, 26, 44, 0.95);
+    --card-border: rgba(255, 255, 255, 0.08);
     --border: rgba(255, 255, 255, 0.08);
-    --border-hover: rgba(6, 182, 212, 0.35);
-    --border-glow: rgba(6, 182, 212, 0.2);
+    --border-hover: rgba(6, 182, 212, 0.4);
     --accent: #06b6d4;
-    --accent-glow: rgba(6, 182, 212, 0.35);
+    --accent-glow: rgba(6, 182, 212, 0.3);
     --accent-muted: rgba(6, 182, 212, 0.12);
-    --surface: rgba(255, 255, 255, 0.02);
 
-    /* Category colors */
+    /* Category colors for dark mode */
     --color-first-party: #4ade80;
     --color-tracker: #f87171;
     --color-ad-network: #fb923c;
     --color-malicious: #dc2626;
     --color-unknown: #9ca3af;
   }
-
-  html.light {
-    --background: #f4f7fb;
-    --background-subtle: #e9eef6;
-    --foreground: #0f172a;
-    --foreground-muted: #475569;
-    --foreground-dim: #64748b;
-    --card: rgba(255, 255, 255, 0.82);
-    --card-hover: rgba(255, 255, 255, 0.95);
-    --card-solid: #ffffff;
-    --border: rgba(15, 23, 42, 0.09);
-    --border-hover: rgba(6, 182, 212, 0.45);
-    --border-glow: rgba(6, 182, 212, 0.25);
-    --accent: #0891b2;
-    --accent-glow: rgba(8, 145, 178, 0.25);
-    --accent-muted: rgba(8, 145, 178, 0.1);
-    --surface: rgba(0, 0, 0, 0.02);
-
-    /* Light category colors */
-    --color-first-party: #16a34a;
-    --color-tracker: #dc2626;
-    --color-ad-network: #ea580c;
-    --color-malicious: #b91c1c;
-    --color-unknown: #64748b;
-  }
 }
 
 body {
   background-color: var(--background);
   color: var(--foreground);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: 'Inter', 'Geist', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   overflow-x: hidden;
   min-height: 100vh;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  transition: background-color 0.3s ease, color 0.3s ease;
+  background-image: radial-gradient(circle at 50% 0%, rgba(6, 182, 212, 0.05) 0%, transparent 60%);
+  background-attachment: fixed;
 }
 
 /* Monospace font utility */
 .font-mono {
-  font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 .font-hud {
-  font-family: 'Outfit', 'Inter', sans-serif;
+  font-family: 'Outfit', 'Geist', 'Inter', sans-serif;
 }
 
-/* Glassmorphism Surface */
+/* Fast, Hardware-Accelerated Glass Panel */
 .radar-panel {
-  background: var(--card);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background-color: var(--card);
   border: 1px solid var(--border);
-  box-shadow: 0 4px 24px -2px rgba(0, 0, 0, 0.25);
-  transition: border-color 0.25s ease, background-color 0.25s ease, box-shadow 0.25s ease, transform 0.2s ease;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+}
+
+.dark .radar-panel {
+  background-color: rgba(13, 19, 31, 0.85);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.4);
 }
 
 .radar-panel-hover:hover {
-  background: var(--card-hover);
   border-color: var(--border-hover);
-  box-shadow: 0 8px 32px -4px var(--border-glow);
   transform: translateY(-1px);
 }
 
-/* Terminal Feed Row typewriter / slide entrance */
+/* Terminal Log Reveal */
 @keyframes terminal-line-reveal {
-  0% {
+  from {
     opacity: 0;
-    transform: translateX(-8px) scale(0.99);
-    background-color: rgba(6, 182, 212, 0.15);
+    transform: translateY(2px);
   }
-  60% {
-    background-color: rgba(6, 182, 212, 0.08);
-  }
-  100% {
+  to {
     opacity: 1;
-    transform: translateX(0) scale(1);
-    background-color: transparent;
+    transform: translateY(0);
   }
 }
 
 .terminal-line-enter {
-  animation: terminal-line-reveal 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: terminal-line-reveal 0.15s ease-out forwards;
 }
 
-/* Radar Sweep Animation */
+/* Radar Sweep Animation (Pure GPU Transform) */
 @keyframes radar-sweep {
   0% {
     transform: rotate(0deg);
@@ -122,33 +120,8 @@ body {
 }
 
 .animate-radar-sweep {
-  animation: radar-sweep 6s linear infinite;
-}
-
-/* Ripple Pulse Animation */
-@keyframes radar-pulse {
-  0% {
-    transform: scale(0.6);
-    opacity: 0.9;
-  }
-  100% {
-    transform: scale(2.4);
-    opacity: 0;
-  }
-}
-
-.animate-radar-pulse {
-  animation: radar-pulse 2s cubic-bezier(0.2, 0.8, 0.4, 1) infinite;
-}
-
-/* Smooth Count Up animation */
-@keyframes count-up {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.animate-count {
-  animation: count-up 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: radar-sweep 5s linear infinite;
+  transform-box: fill-box;
 }
 
 /* Custom Sleek Scrollbar */
@@ -160,23 +133,9 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.2);
-  border-radius: 6px;
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(6, 182, 212, 0.4);
-}
-
-/* Scanline Overlay effect for terminal */
-.terminal-scanlines {
-  background: linear-gradient(
-    rgba(18, 16, 16, 0) 50%, 
-    rgba(0, 0, 0, 0.25) 50%
-  ), linear-gradient(
-    90deg,
-    rgba(255, 0, 0, 0.03),
-    rgba(0, 255, 0, 0.01),
-    rgba(0, 0, 255, 0.03)
-  );
-  background-size: 100% 2px, 3px 100%;
+  background: rgba(6, 182, 212, 0.6);
 }

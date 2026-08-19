@@ -76,6 +76,16 @@ CREATE TABLE IF NOT EXISTS domain_enrichments (
     cached_at TIMESTAMP NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS device_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    device_mac TEXT NOT NULL,
+    connected_at TIMESTAMP NOT NULL,
+    disconnected_at TIMESTAMP,
+    FOREIGN KEY(device_mac) REFERENCES devices(mac_address)
+);
+
+CREATE INDEX IF NOT EXISTS idx_device_sessions_mac ON device_sessions(device_mac, connected_at DESC);
+
 CREATE TABLE IF NOT EXISTS app_settings (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
@@ -193,6 +203,75 @@ class Database:
             cursor = await db.execute("SELECT * FROM devices ORDER BY last_seen DESC")
             rows = await cursor.fetchall()
             return [dict(row) for row in rows]
+
+    async def open_device_session(self, mac_address: str, timestamp: Optional[datetime] = None):
+        """Opens a new connection session for an active device if no open session exists."""
+        mac = mac_address.lower().strip()
+        ts = (timestamp or datetime.now(timezone.utc)).isoformat()
+        async with aiosqlite.connect(self.db_path) as db:
+            cursor = await db.execute(
+                "SELECT id FROM device_sessions WHERE device_mac = ? AND disconnected_at IS NULL LIMIT 1",
+                (mac,),
+            )
+            row = await cursor.fetchone()
+            if not row:
+                await db.execute(
+                    "INSERT INTO device_sessions (device_mac, connected_at, disconnected_at) VALUES (?, ?, NULL)",
+                    (mac, ts),
+                )
+                await db.commit()
+
+    async def close_device_session(self, mac_address: str, timestamp: Optional[datetime] = None):
+        """Closes any open session for a device when it disconnects."""
+        mac = mac_address.lower().strip()
+        ts = (timestamp or datetime.now(timezone.utc)).isoformat()
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "UPDATE device_sessions SET disconnected_at = ? WHERE device_mac = ? AND disconnected_at IS NULL",
+                (ts, mac),
+            )
+            await db.commit()
+
+    async def get_device_sessions(self, mac_address: str, limit: int = 20) -> List[Dict[str, Any]]:
+        """Retrieves connection/disconnection session history for a device."""
+        mac = mac_address.lower().strip()
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute(
+                "SELECT * FROM device_sessions WHERE device_mac = ? ORDER BY connected_at DESC LIMIT ?",
+                (mac, limit),
+            )
+            rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
+
+    async def sync_device_sessions(self, online_macs: Set[str], timestamp: Optional[datetime] = None):
+        """Synchronizes open and closed sessions based on currently reachable LAN devices."""
+        ts = (timestamp or datetime.now(timezone.utc)).isoformat()
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute("SELECT mac_address FROM devices")
+            devices = await cursor.fetchall()
+
+            for dev in devices:
+                mac = dev["mac_address"].lower().strip()
+                if mac in online_macs:
+                    # Open session if not open
+                    chk = await db.execute(
+                        "SELECT id FROM device_sessions WHERE device_mac = ? AND disconnected_at IS NULL LIMIT 1",
+                        (mac,),
+                    )
+                    if not await chk.fetchone():
+                        await db.execute(
+                            "INSERT INTO device_sessions (device_mac, connected_at, disconnected_at) VALUES (?, ?, NULL)",
+                            (mac, ts),
+                        )
+                else:
+                    # Close session if currently open
+                    await db.execute(
+                        "UPDATE device_sessions SET disconnected_at = ? WHERE device_mac = ? AND disconnected_at IS NULL",
+                        (ts, mac),
+                    )
+            await db.commit()
 
     async def record_connection(
         self,

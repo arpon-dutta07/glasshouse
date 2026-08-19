@@ -45,23 +45,38 @@ async def list_devices(active_only: bool = Query(False), db: Database = Depends(
 
 @router.get("/{mac}")
 async def get_device(mac: str, db: Database = Depends(get_db)):
-    """Returns details, score history, and recent connections for a specific device."""
+    """Returns details, score history, sessions, and recent connections for a specific device."""
+    from backend.main import app_state
+    tracker = getattr(app_state, "device_tracker", None)
+    active_macs = tracker.get_active_macs() if tracker else set()
+
     device = await db.get_device(mac)
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
 
     scores = await db.get_score_history(mac, limit=50)
     recent_conns = await db.get_recent_connections(limit=50, device_mac=mac)
+    sessions = await db.get_device_sessions(mac, limit=25)
+
     latest_score = scores[0] if scores else None
     device["current_score"] = latest_score["score"] if latest_score else 100
     device["current_tracker_count"] = latest_score["tracker_count"] if latest_score else 0
     device["current_total_count"] = latest_score["total_count"] if latest_score else 0
+    device["is_online"] = mac.lower().strip() in active_macs
 
     return {
         "device": device,
         "score_history": scores,
         "recent_connections": recent_conns,
+        "sessions": sessions,
     }
+
+
+@router.get("/{mac}/sessions")
+async def get_device_sessions(mac: str, limit: int = Query(25), db: Database = Depends(get_db)):
+    """Returns connection and disconnection session timeline for a device."""
+    sessions = await db.get_device_sessions(mac, limit=limit)
+    return {"mac": mac, "sessions": sessions, "count": len(sessions)}
 
 
 @router.patch("/{mac}")
