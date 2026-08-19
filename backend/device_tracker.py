@@ -1,6 +1,7 @@
 """Device identification, IP-to-MAC resolution, and MAC OUI vendor lookup.
 
-Uses the mac-vendor-lookup package for comprehensive IEEE OUI resolution (~30K vendors),
+Loads the full IEEE OUI vendor database (~38K vendors) from mac-vendor-lookup's
+bundled vendor table for instant O(1) synchronous lookups without async event-loop conflicts,
 with a curated fallback dictionary for offline/edge cases.
 """
 
@@ -13,62 +14,72 @@ from typing import Dict, List, Optional, Set
 
 logger = logging.getLogger(__name__)
 
-# Try to import mac-vendor-lookup for comprehensive OUI resolution
-try:
-    from mac_vendor_lookup import MacLookup, VendorNotFoundError
-    _mac_lookup = MacLookup()
-    _HAS_MAC_LOOKUP = True
-except ImportError:
-    _mac_lookup = None
-    _HAS_MAC_LOOKUP = False
-    logger.warning("mac-vendor-lookup not installed; falling back to curated OUI table")
-
-
 # Compact curated fallback for common home-network OUI prefixes
 _CURATED_OUI: Dict[str, str] = {
     # Apple
-    "0026bb": "Apple, Inc.", "a483e7": "Apple, Inc.", "f01898": "Apple, Inc.",
-    "3c0754": "Apple, Inc.", "406c8f": "Apple, Inc.", "acde48": "Apple, Inc.",
-    "bc5436": "Apple, Inc.", "dc2b61": "Apple, Inc.", "f4f15a": "Apple, Inc.",
+    "0026BB": "Apple, Inc.", "A483E7": "Apple, Inc.", "F01898": "Apple, Inc.",
+    "3C0754": "Apple, Inc.", "406C8F": "Apple, Inc.", "ACDE48": "Apple, Inc.",
+    "BC5436": "Apple, Inc.", "DC2B61": "Apple, Inc.", "F4F15A": "Apple, Inc.",
     # Samsung
-    "508569": "Samsung Electronics", "606c66": "Samsung Electronics",
-    "745e1c": "Samsung Electronics", "842519": "Samsung Electronics",
-    "a00798": "Samsung Electronics", "e47cf9": "Samsung Electronics",
+    "508569": "Samsung Electronics", "606C66": "Samsung Electronics",
+    "745E1C": "Samsung Electronics", "842519": "Samsung Electronics",
+    "A00798": "Samsung Electronics", "E47CF9": "Samsung Electronics",
     # Google
-    "3c5ab4": "Google, Inc.", "546009": "Google, Inc.", "f4f5d8": "Google, Inc.",
+    "3C5AB4": "Google, Inc.", "546009": "Google, Inc.", "F4F5D8": "Google, Inc.",
     # Amazon
-    "44650d": "Amazon Technologies", "6837e9": "Amazon Technologies",
-    "fc65de": "Amazon Technologies", "ac63be": "Amazon Technologies",
+    "44650D": "Amazon Technologies", "6837E9": "Amazon Technologies",
+    "FC65DE": "Amazon Technologies", "AC63BE": "Amazon Technologies",
     # Espressif (IoT)
-    "240ac4": "Espressif Inc.", "84cca8": "Espressif Inc.",
-    "a020a6": "Espressif Inc.", "cc50e3": "Espressif Inc.",
+    "240AC4": "Espressif Inc.", "84CCA8": "Espressif Inc.",
+    "A020A6": "Espressif Inc.", "CC50E3": "Espressif Inc.",
     # Raspberry Pi
-    "b827eb": "Raspberry Pi Foundation", "dca632": "Raspberry Pi Foundation",
-    "e45f01": "Raspberry Pi Foundation", "28cdc1": "Raspberry Pi Foundation",
+    "B827EB": "Raspberry Pi Foundation", "DCA632": "Raspberry Pi Foundation",
+    "E45F01": "Raspberry Pi Foundation", "28CDC1": "Raspberry Pi Foundation",
     # TP-Link
-    "50c7bf": "TP-Link Technologies", "002127": "TP-Link Technologies",
+    "50C7BF": "TP-Link Technologies", "002127": "TP-Link Technologies",
     # Roku
-    "080581": "Roku, Inc.", "d83134": "Roku, Inc.", "ac3a7a": "Roku, Inc.",
+    "080581": "Roku, Inc.", "D83134": "Roku, Inc.", "AC3A7A": "Roku, Inc.",
     # Xiaomi
-    "7802f8": "Xiaomi Communications", "286c07": "Xiaomi Communications",
-    "640980": "Xiaomi Communications", "50642b": "Xiaomi Communications",
+    "7802F8": "Xiaomi Communications", "286C07": "Xiaomi Communications",
+    "640980": "Xiaomi Communications", "50642B": "Xiaomi Communications",
     # Microsoft
-    "001d42": "Microsoft Corp", "281878": "Microsoft Corp",
+    "001D42": "Microsoft Corp", "281878": "Microsoft Corp",
     # Intel
-    "000e0c": "Intel Corporate", "001500": "Intel Corporate",
+    "000E0C": "Intel Corporate", "001500": "Intel Corporate",
     # Sony
-    "001dba": "Sony Interactive", "709e29": "Sony Interactive",
+    "001DBA": "Sony Interactive", "709E29": "Sony Interactive",
     # LG
-    "001e75": "LG Electronics", "10f96f": "LG Electronics",
+    "001E75": "LG Electronics", "10F96F": "LG Electronics",
     # Realtek (common Wi-Fi chipsets)
-    "9c2f9d": "Realtek Semiconductor", "e4a8df": "Realtek Semiconductor",
+    "9C2F9D": "Realtek Semiconductor", "E4A8DF": "Realtek Semiconductor",
     # Qualcomm
-    "0026b6": "Qualcomm", "8c0f6f": "Qualcomm",
+    "0026B6": "Qualcomm", "8C0F6F": "Qualcomm",
     # Huawei
-    "e43e69": "Huawei Technologies", "c8d15e": "Huawei Technologies",
+    "E43E69": "Huawei Technologies", "C8D15E": "Huawei Technologies",
     # OnePlus
-    "94652d": "OnePlus Technology",
+    "94652D": "OnePlus Technology",
 }
+
+
+def _load_ieee_vendors() -> Dict[str, str]:
+    """Loads the IEEE OUI database synchronously from mac-vendor-lookup's cache."""
+    vendors: Dict[str, str] = dict(_CURATED_OUI)
+    try:
+        from mac_vendor_lookup import BaseMacLookup
+        cache_file = BaseMacLookup().find_vendors_list()
+        if cache_file and os.path.exists(cache_file):
+            with open(cache_file, "rb") as f:
+                for line in f.read().splitlines():
+                    if b":" in line:
+                        prefix, vendor = line.split(b":", 1)
+                        clean_prefix = prefix.decode("utf-8", errors="ignore").strip().upper()
+                        clean_vendor = vendor.decode("utf-8", errors="ignore").strip()
+                        vendors[clean_prefix] = clean_vendor
+            logger.info(f"Loaded {len(vendors)} IEEE MAC OUI vendor prefixes into memory")
+    except Exception as e:
+        logger.debug(f"Could not load extended IEEE OUI table: {e}. Using curated OUI fallback.")
+    return vendors
+
 
 # Traffic-pattern domain sets for device type guessing
 _APPLE_DOMAINS = {"apple.com", "icloud.com", "apple-dns.net", "mzstatic.com", "apple.news"}
@@ -97,37 +108,20 @@ class DeviceTracker:
     """Tracks active LAN devices, maps IP <-> MAC addresses, and resolves vendors."""
 
     def __init__(self, oui_db: Optional[Dict[str, str]] = None):
-        self.oui_db = oui_db or _CURATED_OUI
+        self.oui_db = oui_db if oui_db is not None else _load_ieee_vendors()
         self.ip_to_mac_cache: Dict[str, str] = {}
         self.mac_to_ip_cache: Dict[str, str] = {}
         self._domain_history: Dict[str, Set[str]] = {}  # mac -> set of observed domains
 
     def lookup_vendor(self, mac: str) -> Optional[str]:
-        """Resolves MAC address OUI prefix to manufacturer name.
-
-        Uses mac-vendor-lookup package (full IEEE DB) as primary,
-        falls back to curated dictionary if package unavailable.
-        """
-        cleaned = re.sub(r"[^0-9a-fA-F]", "", mac).lower()
+        """Resolves MAC address OUI prefix to manufacturer name (O(1) dictionary lookup)."""
+        cleaned = re.sub(r"[^0-9a-fA-F]", "", mac).upper()
         if len(cleaned) < 6:
             return None
 
-        # 1. Try comprehensive mac-vendor-lookup package
-        if _HAS_MAC_LOOKUP:
-            try:
-                vendor = _mac_lookup.lookup(mac)
-                if vendor:
-                    return vendor
-            except (VendorNotFoundError, Exception):
-                pass
-
-        # 2. Fallback to curated OUI dict
+        # Look up 6-character OUI prefix
         oui_prefix = cleaned[:6]
-        result = self.oui_db.get(oui_prefix)
-        if result:
-            return result
-
-        return None
+        return self.oui_db.get(oui_prefix)
 
     def guess_device_type(self, vendor: Optional[str] = None, mac: Optional[str] = None) -> str:
         """Guesses device type based on vendor name and observed traffic patterns.

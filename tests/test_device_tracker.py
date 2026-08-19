@@ -14,15 +14,15 @@ def test_vendor_lookup_known_manufacturers():
     tracker = DeviceTracker()
 
     # Apple
-    assert tracker.lookup_vendor("a4:83:e7:00:11:22") == "Apple, Inc."
+    assert "Apple" in tracker.lookup_vendor("a4:83:e7:00:11:22")
     # Samsung
-    assert tracker.lookup_vendor("50:85:69:12:34:56") == "Samsung Electronics"
+    assert "Samsung Electronics" in tracker.lookup_vendor("50:85:69:12:34:56")
     # Espressif IoT
-    assert tracker.lookup_vendor("24:0a:c4:99:88:77") == "Espressif Inc."
+    assert "Espressif" in tracker.lookup_vendor("24:0a:c4:99:88:77")
     # Raspberry Pi
-    assert tracker.lookup_vendor("b8:27:eb:aa:bb:cc") == "Raspberry Pi Foundation"
+    assert "Raspberry Pi" in tracker.lookup_vendor("b8:27:eb:aa:bb:cc")
     # Google
-    assert tracker.lookup_vendor("3c:5a:b4:11:22:33") == "Google, Inc."
+    assert "Google" in tracker.lookup_vendor("3c:5a:b4:11:22:33")
 
 
 def test_suggest_device_name():

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Plus, Trash2, Shield, ShieldCheck, ShieldAlert, Sliders, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Sliders } from "lucide-react";
 import { CustomRule, fetchCustomRules, addCustomRule, deleteCustomRule } from "@/lib/api";
 
 export default function RulesPage() {
@@ -31,7 +31,7 @@ export default function RulesPage() {
     const domain = domainInput.toLowerCase().trim();
     const ok = await addCustomRule(domain, actionInput, categoryInput);
     if (ok) {
-      setNotification(`Rule successfully created for ${domain}`);
+      setNotification(`Rule created: ${actionInput.toUpperCase()} ${domain}`);
       setDomainInput("");
       setTimeout(() => setNotification(null), 3000);
       loadRules();
@@ -41,80 +41,73 @@ export default function RulesPage() {
   const handleDeleteRule = async (domain: string) => {
     const ok = await deleteCustomRule(domain);
     if (ok) {
-      setNotification(`Rule deleted for ${domain}`);
+      setNotification(`Rule deleted: ${domain}`);
       setTimeout(() => setNotification(null), 3000);
       loadRules();
     }
   };
 
   return (
-    <div className="space-y-8 max-w-4xl mx-auto">
+    <div className="space-y-8 max-w-3xl mx-auto">
       {/* Breadcrumb & Header */}
-      <div>
+      <div className="space-y-1">
         <Link
           href="/"
-          className="inline-flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-cyan-300 transition-colors mb-4"
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 transition-colors mb-3"
         >
-          <ArrowLeft className="w-4 h-4" /> Back to Overview
+          <ArrowLeft className="w-3.5 h-3.5" /> Overview
         </Link>
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-cyan-950/80 border border-cyan-800/60 flex items-center justify-center text-cyan-400">
-            <Sliders className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-slate-100 tracking-tight">Custom Domain Rules</h1>
-            <p className="text-xs text-slate-400">
-              Override public blocklist classifications with custom allowlists and blocklists
-            </p>
-          </div>
-        </div>
+        <h1 className="text-xl font-bold text-white tracking-tight">Classification Rules</h1>
+        <p className="text-xs text-slate-500">
+          User overrides applied before public blocklist matching
+        </p>
       </div>
 
       {notification && (
-        <div className="p-3 rounded-xl bg-cyan-950/80 border border-cyan-800 text-cyan-200 text-xs font-mono text-center">
+        <div className="py-2 px-4 rounded-lg bg-cyan-500/10 text-cyan-400 text-xs font-mono text-center">
           {notification}
         </div>
       )}
 
-      {/* Add Rule Form Card */}
-      <div className="glass-card rounded-2xl p-6">
-        <h2 className="text-sm font-bold text-slate-200 mb-4 flex items-center gap-2">
-          <Plus className="w-4 h-4 text-cyan-400" /> Create Custom Classification Rule
+      {/* Add Rule Form */}
+      <div className="rounded-2xl bg-white/[0.02] border border-white/[0.04] p-5">
+        <h2 className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-4">
+          Add Custom Override
         </h2>
 
         <form onSubmit={handleAddRule} className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
           <div className="sm:col-span-6">
-            <label className="block text-[11px] font-mono uppercase text-slate-400 mb-1">
-              Domain / Subdomain
+            <label className="block text-[10px] uppercase font-medium text-slate-500 mb-1">
+              Domain Name
             </label>
             <input
               type="text"
-              placeholder="e.g. telemetry.smartdevice.com"
+              placeholder="e.g. telemetry.example.com"
               value={domainInput}
               onChange={(e) => setDomainInput(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl bg-slate-950/80 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:border-cyan-500 font-mono placeholder:text-slate-600"
+              className="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.06] text-xs text-slate-200 focus:outline-none focus:border-cyan-500/40 font-mono placeholder:text-slate-600"
               required
             />
           </div>
 
           <div className="sm:col-span-3">
-            <label className="block text-[11px] font-mono uppercase text-slate-400 mb-1">
+            <label className="block text-[10px] uppercase font-medium text-slate-500 mb-1">
               Action
             </label>
             <select
               value={actionInput}
               onChange={(e) => setActionInput(e.target.value as "allow" | "block")}
-              className="w-full px-3 py-2 rounded-xl bg-slate-950/80 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:border-cyan-500 font-mono"
+              className="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.06] text-xs text-slate-200 focus:outline-none focus:border-cyan-500/40 font-mono"
             >
-              <option value="block">Block (Flag Tracker)</option>
-              <option value="allow">Allow (Mark Benign)</option>
+              <option value="block" className="bg-slate-900 text-slate-200">Block (Tracker)</option>
+              <option value="allow" className="bg-slate-900 text-slate-200">Allow (Benign)</option>
             </select>
           </div>
 
           <div className="sm:col-span-3">
             <button
               type="submit"
-              className="w-full py-2 px-4 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition-colors shadow-lg shadow-cyan-500/20"
+              className="w-full py-2 px-4 rounded-lg bg-white/[0.08] hover:bg-white/[0.12] text-white font-medium text-xs transition-colors"
             >
               Add Rule
             </button>
@@ -123,54 +116,50 @@ export default function RulesPage() {
       </div>
 
       {/* Rules Table */}
-      <div className="glass-card rounded-2xl p-6 space-y-4">
+      <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold text-slate-200">Active Custom Rules</h2>
-          <span className="text-xs font-mono text-slate-400">{rules.length} custom rules</span>
+          <h2 className="text-xs font-medium text-slate-400 uppercase tracking-wider">Active Rules</h2>
+          <span className="text-[11px] font-mono text-slate-600">{rules.length} custom</span>
         </div>
 
         {rules.length === 0 ? (
-          <div className="py-12 text-center text-slate-500 font-mono text-xs">
-            No custom rules configured yet. Rules you add will take highest precedence over blocklists.
+          <div className="rounded-xl bg-white/[0.015] border border-white/[0.04] py-12 text-center text-slate-600 text-xs font-mono">
+            No custom rules configured.
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="rounded-xl bg-white/[0.02] border border-white/[0.04] overflow-hidden">
             <table className="w-full text-left text-xs font-mono">
               <thead>
-                <tr className="border-b border-slate-800 text-slate-400 text-[11px] uppercase">
-                  <th className="pb-3 pl-2">Domain Pattern</th>
-                  <th className="pb-3">Action</th>
-                  <th className="pb-3">Category</th>
-                  <th className="pb-3">Created</th>
-                  <th className="pb-3 text-right pr-2">Action</th>
+                <tr className="border-b border-white/[0.04] text-[10px] uppercase font-medium text-slate-500">
+                  <th className="py-3 px-4">Domain Pattern</th>
+                  <th className="py-3 px-4">Action</th>
+                  <th className="py-3 px-4">Created</th>
+                  <th className="py-3 px-4 text-right">Delete</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60">
+              <tbody className="divide-y divide-white/[0.03] text-[11px]">
                 {rules.map((r) => {
                   const isBlock = r.action === "block";
                   return (
-                    <tr key={r.domain} className="hover:bg-slate-900/40 transition-colors">
-                      <td className="py-3 pl-2 font-medium text-slate-200">{r.domain}</td>
-                      <td className="py-3">
-                        <span
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold border ${
-                            isBlock
-                              ? "bg-rose-950/60 border-rose-800 text-rose-300"
-                              : "bg-emerald-950/60 border-emerald-800 text-emerald-300"
-                          }`}
-                        >
-                          {isBlock ? <ShieldAlert className="w-2.5 h-2.5" /> : <ShieldCheck className="w-2.5 h-2.5" />}
-                          {r.action.toUpperCase()}
+                    <tr key={r.domain} className="hover:bg-white/[0.02] transition-colors">
+                      <td className="py-2.5 px-4 font-medium text-slate-200">{r.domain}</td>
+                      <td className="py-2.5 px-4">
+                        <span className="inline-flex items-center gap-1.5 text-slate-300 capitalize">
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              isBlock ? "bg-red-400" : "bg-emerald-400"
+                            }`}
+                          />
+                          {r.action}
                         </span>
                       </td>
-                      <td className="py-3 text-slate-400">{r.category}</td>
-                      <td className="py-3 text-slate-400">
+                      <td className="py-2.5 px-4 text-slate-500">
                         {new Date(r.created_at).toLocaleDateString()}
                       </td>
-                      <td className="py-3 text-right pr-2">
+                      <td className="py-2.5 px-4 text-right">
                         <button
                           onClick={() => handleDeleteRule(r.domain)}
-                          className="p-1.5 rounded-lg bg-slate-800/60 hover:bg-rose-950/60 hover:text-rose-300 text-slate-400 transition-colors"
+                          className="p-1 rounded hover:bg-red-500/10 hover:text-red-400 text-slate-600 transition-colors"
                           title="Delete rule"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
