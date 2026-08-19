@@ -1,17 +1,55 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Outfit:wght@400;500;600;700;800;900&display=swap');
 @import "tailwindcss";
 
 @layer base {
   :root {
-    --background: #06060b;
+    --background: #090c12;
+    --background-subtle: #0d121c;
     --foreground: #e2e8f0;
-    --card: rgba(255, 255, 255, 0.025);
-    --card-hover: rgba(255, 255, 255, 0.045);
-    --border: rgba(255, 255, 255, 0.06);
-    --border-hover: rgba(255, 255, 255, 0.12);
+    --foreground-muted: #94a3b8;
+    --foreground-dim: #64748b;
+    --card: rgba(15, 22, 36, 0.65);
+    --card-hover: rgba(22, 32, 52, 0.75);
+    --card-solid: #0f1624;
+    --border: rgba(255, 255, 255, 0.08);
+    --border-hover: rgba(6, 182, 212, 0.35);
+    --border-glow: rgba(6, 182, 212, 0.2);
     --accent: #06b6d4;
+    --accent-glow: rgba(6, 182, 212, 0.35);
     --accent-muted: rgba(6, 182, 212, 0.12);
-    --surface: rgba(255, 255, 255, 0.015);
+    --surface: rgba(255, 255, 255, 0.02);
+
+    /* Category colors */
+    --color-first-party: #4ade80;
+    --color-tracker: #f87171;
+    --color-ad-network: #fb923c;
+    --color-malicious: #dc2626;
+    --color-unknown: #9ca3af;
+  }
+
+  html.light {
+    --background: #f4f7fb;
+    --background-subtle: #e9eef6;
+    --foreground: #0f172a;
+    --foreground-muted: #475569;
+    --foreground-dim: #64748b;
+    --card: rgba(255, 255, 255, 0.82);
+    --card-hover: rgba(255, 255, 255, 0.95);
+    --card-solid: #ffffff;
+    --border: rgba(15, 23, 42, 0.09);
+    --border-hover: rgba(6, 182, 212, 0.45);
+    --border-glow: rgba(6, 182, 212, 0.25);
+    --accent: #0891b2;
+    --accent-glow: rgba(8, 145, 178, 0.25);
+    --accent-muted: rgba(8, 145, 178, 0.1);
+    --surface: rgba(0, 0, 0, 0.02);
+
+    /* Light category colors */
+    --color-first-party: #16a34a;
+    --color-tracker: #dc2626;
+    --color-ad-network: #ea580c;
+    --color-malicious: #b91c1c;
+    --color-unknown: #64748b;
   }
 }
 
@@ -23,69 +61,122 @@ body {
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* Minimal card — almost invisible border, subtle bg */
-.glass-card {
+/* Monospace font utility */
+.font-mono {
+  font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.font-hud {
+  font-family: 'Outfit', 'Inter', sans-serif;
+}
+
+/* Glassmorphism Surface */
+.radar-panel {
   background: var(--card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--border);
-  box-shadow: none;
+  box-shadow: 0 4px 24px -2px rgba(0, 0, 0, 0.25);
+  transition: border-color 0.25s ease, background-color 0.25s ease, box-shadow 0.25s ease, transform 0.2s ease;
 }
 
-.glass-card-hover {
-  transition: all 0.2s ease;
-}
-
-.glass-card-hover:hover {
+.radar-panel-hover:hover {
   background: var(--card-hover);
   border-color: var(--border-hover);
+  box-shadow: 0 8px 32px -4px var(--border-glow);
   transform: translateY(-1px);
 }
 
-/* Stat strip divider */
-.stat-divider {
-  width: 1px;
-  background: var(--border);
-  align-self: stretch;
-}
-
-/* Feed row entrance animation */
-@keyframes feed-in {
-  from {
+/* Terminal Feed Row typewriter / slide entrance */
+@keyframes terminal-line-reveal {
+  0% {
     opacity: 0;
-    transform: translateY(-6px);
+    transform: translateX(-8px) scale(0.99);
+    background-color: rgba(6, 182, 212, 0.15);
   }
-  to {
+  60% {
+    background-color: rgba(6, 182, 212, 0.08);
+  }
+  100% {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateX(0) scale(1);
+    background-color: transparent;
   }
 }
 
-.feed-row-enter {
-  animation: feed-in 0.35s ease-out;
+.terminal-line-enter {
+  animation: terminal-line-reveal 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* Smooth counter animation */
+/* Radar Sweep Animation */
+@keyframes radar-sweep {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-radar-sweep {
+  animation: radar-sweep 6s linear infinite;
+}
+
+/* Ripple Pulse Animation */
+@keyframes radar-pulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+.animate-radar-pulse {
+  animation: radar-pulse 2s cubic-bezier(0.2, 0.8, 0.4, 1) infinite;
+}
+
+/* Smooth Count Up animation */
 @keyframes count-up {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 .animate-count {
-  animation: count-up 0.5s ease-out;
+  animation: count-up 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Subtle scrollbar */
+/* Custom Sleek Scrollbar */
 ::-webkit-scrollbar {
-  width: 4px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 6px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(6, 182, 212, 0.4);
+}
+
+/* Scanline Overlay effect for terminal */
+.terminal-scanlines {
+  background: linear-gradient(
+    rgba(18, 16, 16, 0) 50%, 
+    rgba(0, 0, 0, 0.25) 50%
+  ), linear-gradient(
+    90deg,
+    rgba(255, 0, 0, 0.03),
+    rgba(0, 255, 0, 0.01),
+    rgba(0, 0, 255, 0.03)
+  );
+  background-size: 100% 2px, 3px 100%;
 }

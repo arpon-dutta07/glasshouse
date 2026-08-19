@@ -63,7 +63,7 @@ export default function DeviceDetailPage() {
   const handleRuleAction = async (domain: string, action: "allow" | "block") => {
     const ok = await addCustomRule(domain, action, action === "allow" ? "first_party" : "tracker");
     if (ok) {
-      setNotification(`Rule applied: ${action.toUpperCase()} for ${domain}`);
+      setNotification(`[RULE APPLIED] ${action.toUpperCase()} ${domain}`);
       setTimeout(() => setNotification(null), 3000);
       loadDetails();
     }
@@ -167,12 +167,12 @@ export default function DeviceDetailPage() {
 
   if (!deviceData || !deviceData.device) {
     return (
-      <div className="rounded-2xl bg-white/[0.02] border border-white/[0.04] p-12 text-center space-y-4 max-w-lg mx-auto">
-        <h2 className="text-base font-semibold text-slate-200">Device Not Found</h2>
+      <div className="rounded-2xl radar-panel p-12 text-center space-y-4 max-w-lg mx-auto font-mono">
+        <h2 className="text-base font-semibold text-slate-200 font-hud">Device Not Found</h2>
         <p className="text-xs text-slate-500 font-mono">No record for MAC: {mac}</p>
         <Link
           href="/"
-          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-white/[0.04] text-slate-300 text-xs font-medium hover:bg-white/[0.08] transition-colors"
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/[0.04] text-slate-300 text-xs font-medium hover:bg-white/[0.08] transition-colors"
         >
           <ArrowLeft className="w-3.5 h-3.5" /> Return to Overview
         </Link>
@@ -190,9 +190,9 @@ export default function DeviceDetailPage() {
   const Icon = getDeviceIcon(device.vendor, device.device_name);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 font-mono">
       {/* Top Breadcrumb & Actions */}
-      <div className="flex items-center justify-between text-xs">
+      <div className="flex items-center justify-between text-xs font-sans">
         <Link
           href="/"
           className="inline-flex items-center gap-1.5 font-medium text-slate-400 hover:text-slate-200 transition-colors"
@@ -205,7 +205,7 @@ export default function DeviceDetailPage() {
           </span>
           <button
             onClick={handleDeleteDevice}
-            className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-white/[0.03] hover:bg-rose-500/10 hover:text-rose-400 text-slate-500 text-[11px] transition-colors"
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/[0.03] hover:bg-rose-500/15 hover:text-rose-400 text-slate-500 text-[11px] font-mono transition-colors"
             title="Forget device"
           >
             <Trash2 className="w-3 h-3" />
@@ -215,26 +215,26 @@ export default function DeviceDetailPage() {
       </div>
 
       {notification && (
-        <div className="py-2 px-4 rounded-lg bg-cyan-500/10 text-cyan-400 text-xs text-center font-mono">
+        <div className="py-2 px-4 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-xs text-center font-mono animate-count">
           {notification}
         </div>
       )}
 
       {/* Main Device Hero Banner */}
-      <div className="rounded-2xl bg-white/[0.02] border border-white/[0.04] p-6 lg:p-8">
+      <div className="rounded-2xl radar-panel p-6 lg:p-8">
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-8">
           {/* Left Device Summary */}
           <div className="space-y-4 flex-1 min-w-0">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-slate-300 flex-shrink-0">
-                <Icon className="w-5 h-5 text-cyan-400" />
+              <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 flex-shrink-0 shadow-[0_0_12px_rgba(6,182,212,0.2)]">
+                <Icon className="w-6 h-6" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-mono text-slate-500 uppercase tracking-wider">
+                  <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-widest">
                     {device.vendor || "Connected Wi-Fi Device"}
                   </span>
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                     Active on Wi-Fi
                   </span>
@@ -246,12 +246,12 @@ export default function DeviceDetailPage() {
                       type="text"
                       value={nameInput}
                       onChange={(e) => setNameInput(e.target.value)}
-                      className="px-2 py-1 rounded bg-black/60 border border-cyan-500 text-sm text-white font-semibold focus:outline-none max-w-sm"
+                      className="px-2.5 py-1 rounded-xl bg-black/70 border border-cyan-500 text-sm text-white font-bold focus:outline-none max-w-sm font-mono"
                       autoFocus
                     />
                     <button
                       onClick={handleSaveName}
-                      className="p-1 rounded bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/40"
+                      className="p-1.5 rounded-lg bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/40"
                       title="Save name"
                     >
                       <Check className="w-4 h-4" />
@@ -261,20 +261,20 @@ export default function DeviceDetailPage() {
                         setNameInput(device.device_name || "");
                         setIsEditing(false);
                       }}
-                      className="p-1 rounded bg-white/[0.05] text-slate-400 hover:text-white"
+                      className="p-1.5 rounded-lg bg-white/[0.05] text-slate-400 hover:text-white"
                       title="Cancel"
                     >
                       <X className="w-4 h-4" />
                     </button>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2 group/title mt-0.5">
-                    <h1 className="text-2xl font-bold text-white tracking-tight leading-tight truncate">
+                  <div className="flex items-center gap-2 group/title mt-1">
+                    <h1 className="text-2xl font-black text-white tracking-tight leading-tight truncate font-hud">
                       {device.device_name || "Wi-Fi Device"}
                     </h1>
                     <button
                       onClick={() => setIsEditing(true)}
-                      className="p-1 text-slate-600 hover:text-cyan-400 opacity-0 group-hover/title:opacity-100 transition-opacity"
+                      className="p-1 text-slate-500 hover:text-cyan-400 opacity-0 group-hover/title:opacity-100 transition-opacity"
                       title="Rename device"
                     >
                       <Edit2 className="w-3.5 h-3.5" />
@@ -286,21 +286,21 @@ export default function DeviceDetailPage() {
 
             {/* Quick Specs Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2">
-              <div className="p-3 rounded-xl bg-white/[0.015] border border-white/[0.03]">
-                <span className="text-[10px] uppercase font-medium text-slate-500 block">IP Address</span>
-                <p className="text-xs font-mono text-slate-200 mt-1 font-medium">{device.ip_address || "—"}</p>
+              <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+                <span className="text-[10px] uppercase font-bold text-slate-500 block">IP Address</span>
+                <p className="text-xs font-mono text-cyan-300 mt-1 font-bold">{device.ip_address || "—"}</p>
               </div>
-              <div className="p-3 rounded-xl bg-white/[0.015] border border-white/[0.03]">
-                <span className="text-[10px] uppercase font-medium text-slate-500 block">MAC Address</span>
+              <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+                <span className="text-[10px] uppercase font-bold text-slate-500 block">MAC Address</span>
                 <p className="text-xs font-mono text-slate-200 mt-1 truncate">{device.mac_address}</p>
               </div>
-              <div className="p-3 rounded-xl bg-white/[0.015] border border-white/[0.03]">
-                <span className="text-[10px] uppercase font-medium text-slate-500 block">Manufacturer</span>
+              <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+                <span className="text-[10px] uppercase font-bold text-slate-500 block">Manufacturer</span>
                 <p className="text-xs font-mono text-slate-200 mt-1 truncate">{device.vendor || "Generic Wi-Fi"}</p>
               </div>
-              <div className="p-3 rounded-xl bg-white/[0.015] border border-white/[0.03]">
-                <span className="text-[10px] uppercase font-medium text-slate-500 block">First Discovered</span>
-                <p className="text-xs font-mono text-slate-200 mt-1">
+              <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+                <span className="text-[10px] uppercase font-bold text-slate-500 block">First Discovered</span>
+                <p className="text-xs font-mono text-slate-300 mt-1">
                   {new Date(device.first_seen).toLocaleDateString()}
                 </p>
               </div>
@@ -309,17 +309,17 @@ export default function DeviceDetailPage() {
 
           {/* Right Status or Score Gauge */}
           {hasLiveTelemetry ? (
-            <div className="flex flex-col items-center justify-center lg:pl-8 lg:border-l lg:border-white/[0.04] self-stretch">
-              <ScoreGauge score={score} size={100} strokeWidth={8} />
-              <p className="text-[10px] text-slate-500 mt-2 text-center font-mono">Rolling 24h score</p>
+            <div className="flex flex-col items-center justify-center lg:pl-8 lg:border-l lg:border-white/[0.06] self-stretch">
+              <ScoreGauge score={score} size={130} />
+              <p className="text-[10px] text-slate-500 mt-1 text-center font-mono">Rolling 24h score</p>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center lg:pl-8 lg:border-l lg:border-white/[0.04] self-stretch text-center min-w-[140px]">
-              <div className="w-14 h-14 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 mb-2">
+            <div className="flex flex-col items-center justify-center lg:pl-8 lg:border-l lg:border-white/[0.06] self-stretch text-center min-w-[150px]">
+              <div className="w-14 h-14 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 mb-2 shadow-[0_0_12px_rgba(6,182,212,0.2)]">
                 <Wifi className="w-7 h-7" />
               </div>
-              <span className="text-xs font-semibold text-white">LAN Connected</span>
-              <span className="text-[10px] text-slate-500 font-mono mt-0.5">802.11 Wi-Fi</span>
+              <span className="text-xs font-bold text-white font-hud">LAN CONNECTED</span>
+              <span className="text-[10px] text-slate-500 font-mono mt-0.5">802.11 Wi-Fi Link</span>
             </div>
           )}
         </div>
@@ -331,18 +331,18 @@ export default function DeviceDetailPage() {
           {/* 24-Hour Score History */}
           {score_history.length > 0 && (
             <div className="space-y-3">
-              <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-slate-500" /> Score Timeline
+              <h3 className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center gap-1.5 font-hud">
+                <Clock className="w-3.5 h-3.5 text-cyan-400" /> Score Timeline
               </h3>
-              <div className="rounded-xl bg-white/[0.02] border border-white/[0.04] p-4">
+              <div className="rounded-2xl radar-panel p-4">
                 <div className="grid grid-cols-3 sm:grid-cols-6 md:grid-cols-12 gap-2 text-center">
                   {score_history.slice(-12).map((item, idx) => (
-                    <div key={idx} className="p-2 rounded-lg bg-white/[0.015] font-mono">
-                      <div className="text-sm font-semibold text-white">{item.score}</div>
-                      <div className="text-[9px] text-slate-500 mt-0.5">
+                    <div key={idx} className="p-2 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+                      <div className="text-sm font-black text-white font-hud">{item.score}</div>
+                      <div className="text-[9px] text-slate-500 mt-0.5 font-mono">
                         {new Date(item.computed_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </div>
-                      <div className="text-[9px] text-slate-600 mt-0.5">
+                      <div className="text-[9px] text-rose-400 mt-0.5 font-mono">
                         {item.tracker_count} trk
                       </div>
                     </div>
@@ -355,28 +355,28 @@ export default function DeviceDetailPage() {
           {/* Connection Logs Table */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+              <h3 className="text-xs font-bold text-slate-300 uppercase tracking-widest font-hud">
                 Live Sniffed TLS Handshakes
               </h3>
               <div className="flex items-center gap-2">
-                <span className="text-[11px] font-mono text-slate-600">{recent_connections.length} records</span>
+                <span className="text-[11px] font-mono text-cyan-400">{recent_connections.length} records</span>
                 <CategoryLegend />
               </div>
             </div>
 
-            <div className="rounded-xl bg-white/[0.02] border border-white/[0.04] overflow-hidden">
+            <div className="rounded-2xl radar-panel overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead>
-                    <tr className="border-b border-white/[0.04] text-[10px] uppercase font-medium text-slate-500">
-                      <th className="py-3 px-4">Domain (SNI)</th>
-                      <th className="py-3 px-4">Category</th>
-                      <th className="py-3 px-4">Destination</th>
-                      <th className="py-3 px-4">Time</th>
-                      <th className="py-3 px-4 text-right">Actions</th>
+                    <tr className="border-b border-white/[0.06] text-[10px] uppercase font-bold text-slate-400">
+                      <th className="py-3 px-4">DOMAIN (SNI)</th>
+                      <th className="py-3 px-4">CATEGORY</th>
+                      <th className="py-3 px-4">DESTINATION</th>
+                      <th className="py-3 px-4">TIME</th>
+                      <th className="py-3 px-4 text-right">ACTIONS</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/[0.03] font-mono text-[11px]">
+                  <tbody className="divide-y divide-white/[0.03] text-[11px]">
                     {recent_connections.map((conn, idx) => {
                       const isMalicious = conn.classification === "malicious";
                       const isTracker =
@@ -391,19 +391,19 @@ export default function DeviceDetailPage() {
 
                       return (
                         <tr key={conn.id || idx} className="hover:bg-white/[0.02] transition-colors">
-                          <td className="py-2.5 px-4 font-medium text-slate-200">
+                          <td className="py-2.5 px-4 font-bold text-slate-100">
                             {conn.sni_domain}
                           </td>
                           <td className="py-2.5 px-4">
-                            <span className="inline-flex items-center gap-1.5 text-slate-400 capitalize">
+                            <span className="inline-flex items-center gap-1.5 text-slate-300 capitalize">
                               <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
                               {(conn.classification || "unknown").replace(/_/g, " ")}
                             </span>
                           </td>
-                          <td className="py-2.5 px-4 text-slate-500">
+                          <td className="py-2.5 px-4 text-slate-400">
                             {conn.destination_ip || conn.dst_ip || "—"}
                           </td>
-                          <td className="py-2.5 px-4 text-slate-500">
+                          <td className="py-2.5 px-4 text-slate-400">
                             {new Date(conn.timestamp).toLocaleTimeString([], {
                               hour: "2-digit",
                               minute: "2-digit",
@@ -414,15 +414,15 @@ export default function DeviceDetailPage() {
                             <div className="inline-flex items-center gap-1">
                               <button
                                 onClick={() => handleRuleAction(conn.sni_domain, "allow")}
-                                className="px-2 py-0.5 rounded text-[10px] bg-white/[0.03] hover:bg-emerald-500/10 hover:text-emerald-400 text-slate-500 transition-colors"
+                                className="px-2 py-0.5 rounded text-[10px] bg-white/[0.03] hover:bg-emerald-500/15 hover:text-emerald-300 text-slate-400 border border-white/[0.06] transition-colors"
                               >
-                                Allow
+                                [ALLOW]
                               </button>
                               <button
                                 onClick={() => handleRuleAction(conn.sni_domain, "block")}
-                                className="px-2 py-0.5 rounded text-[10px] bg-white/[0.03] hover:bg-red-500/10 hover:text-red-400 text-slate-500 transition-colors"
+                                className="px-2 py-0.5 rounded text-[10px] bg-white/[0.03] hover:bg-red-500/15 hover:text-red-400 text-slate-400 border border-white/[0.06] transition-colors"
                               >
-                                Block
+                                [BLOCK]
                               </button>
                             </div>
                           </td>
@@ -439,20 +439,20 @@ export default function DeviceDetailPage() {
         /* Professional Unrouted Wi-Fi Device Diagnostic & Hotspot Routing Guide */
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Card 1: Network & Wi-Fi Link Diagnostics */}
-          <div className="rounded-2xl bg-white/[0.02] border border-white/[0.04] p-6 space-y-4">
+          <div className="rounded-2xl radar-panel p-6 space-y-4">
             <div className="flex items-center gap-2">
               <Network className="w-4 h-4 text-cyan-400" />
-              <h3 className="text-sm font-semibold text-white">Network Link Diagnostics</h3>
+              <h3 className="text-sm font-bold text-white font-hud">NETWORK LINK DIAGNOSTICS</h3>
             </div>
 
-            <div className="divide-y divide-white/[0.04] text-xs font-mono">
+            <div className="divide-y divide-white/[0.04] text-xs">
               <div className="py-2.5 flex justify-between">
                 <span className="text-slate-500">Connection Medium</span>
                 <span className="text-slate-200">802.11 Wi-Fi (WPA2/WPA3 CCMP)</span>
               </div>
               <div className="py-2.5 flex justify-between">
                 <span className="text-slate-500">Assigned IP</span>
-                <span className="text-cyan-400">{device.ip_address || "—"}</span>
+                <span className="text-cyan-300 font-bold">{device.ip_address || "—"}</span>
               </div>
               <div className="py-2.5 flex justify-between">
                 <span className="text-slate-500">Physical MAC</span>
@@ -468,31 +468,31 @@ export default function DeviceDetailPage() {
               </div>
               <div className="py-2.5 flex justify-between">
                 <span className="text-slate-500">ICMP Reachability</span>
-                <span className="text-emerald-400">Online & Responding</span>
+                <span className="text-emerald-400 font-bold">Online & Responding</span>
               </div>
             </div>
           </div>
 
           {/* Card 2: Transparent Architecture & Live Sniffing Guide */}
-          <div className="rounded-2xl bg-cyan-950/20 border border-cyan-500/20 p-6 space-y-4 flex flex-col justify-between">
+          <div className="rounded-2xl radar-panel p-6 space-y-4 flex flex-col justify-between border-cyan-500/20 bg-cyan-950/20">
             <div className="space-y-2.5">
               <div className="flex items-center gap-2 text-cyan-400">
                 <Shield className="w-4 h-4" />
-                <h3 className="text-sm font-semibold text-white">Passive Wi-Fi Privacy Architecture</h3>
+                <h3 className="text-sm font-bold text-white font-hud">PASSIVE PRIVACY ARCHITECTURE</h3>
               </div>
-              <p className="text-xs text-slate-300 leading-relaxed">
+              <p className="text-xs text-slate-300 leading-relaxed font-sans">
                 This device communicates directly with the Digisol Wi-Fi router over encrypted wireless frames.
                 Because Glasshouse operates passively with zero network tampering, it does not intercept other devices' private wireless signals without routing.
               </p>
             </div>
 
-            <div className="p-4 rounded-xl bg-black/40 border border-cyan-500/20 space-y-2">
-              <div className="flex items-center gap-2 text-[11px] font-semibold text-cyan-300">
-                <Terminal className="w-3.5 h-3.5" />
-                <span>To inspect live TLS traffic from this device:</span>
+            <div className="p-4 rounded-xl bg-black/50 border border-cyan-500/30 space-y-2">
+              <div className="flex items-center gap-2 text-[11px] font-bold text-cyan-300 font-hud">
+                <Terminal className="w-3.5 h-3.5 text-cyan-400" />
+                <span>TO INSPECT LIVE TLS PACKETS FROM THIS DEVICE:</span>
               </div>
-              <ol className="text-[11px] text-slate-400 space-y-1 list-decimal pl-4">
-                <li>Turn ON <strong className="text-slate-200">Mobile Hotspot</strong> in Windows Settings on this PC.</li>
+              <ol className="text-[11px] text-slate-300 space-y-1 list-decimal pl-4 font-sans">
+                <li>Turn ON <strong className="text-cyan-300">Mobile Hotspot</strong> in Windows Settings on this PC.</li>
                 <li>Connect this device ({device.device_name}) to your PC's hotspot.</li>
                 <li>Live TLS handshakes will automatically stream and populate here in real time.</li>
               </ol>
