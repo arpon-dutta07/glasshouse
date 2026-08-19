@@ -6,6 +6,7 @@ import { Device, NetworkStats, fetchDevices, fetchStats } from "@/lib/api";
 import { DeviceCard } from "@/components/DeviceCard";
 import { LiveFeed } from "@/components/LiveFeed";
 import { ScoreGauge } from "@/components/ScoreGauge";
+import { DeploymentBanner } from "@/components/DeploymentBanner";
 
 export default function OverviewPage() {
   const [devices, setDevices] = useState<Device[]>([]);
@@ -38,7 +39,10 @@ export default function OverviewPage() {
   });
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-8">
+      {/* Onboarding & Deployment Disclaimer Banner */}
+      <DeploymentBanner />
+
       {/* Unified Stats Strip (Linear / Vercel style) */}
       <div className="rounded-2xl bg-white/[0.02] border border-white/[0.04] p-6">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-0 lg:divide-x lg:divide-white/[0.04]">

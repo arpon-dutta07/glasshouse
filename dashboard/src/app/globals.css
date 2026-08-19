@@ -75,11 +75,6 @@ body {
   animation: count-up 0.5s ease-out;
 }
 
-/* Gauge glow */
-.gauge-glow {
-  filter: drop-shadow(0 0 6px var(--accent));
-}
-
 /* Subtle scrollbar */
 ::-webkit-scrollbar {
   width: 4px;

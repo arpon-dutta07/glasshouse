@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { Radio, Filter, Pause, Play, Ban } from "lucide-react";
 import { ConnectionEvent, createLiveWebSocket, fetchRecentConnections, addCustomRule } from "@/lib/api";
+import { CategoryLegend } from "./CategoryLegend";
 
 const categoryConfig: Record<string, { dot: string; label: string }> = {
   tracker: { dot: "bg-red-400", label: "Tracker" },
@@ -72,27 +73,30 @@ export const LiveFeed: React.FC = () => {
         </button>
       </div>
 
-      {/* Filter Tabs */}
-      <div className="flex items-center gap-1 pb-3 border-b border-white/[0.04] text-[11px]">
-        <Filter className="w-3 h-3 text-slate-600 mr-1" />
-        {[
-          { id: "all", label: "All" },
-          { id: "trackers", label: "Trackers" },
-          { id: "first_party", label: "Benign" },
-          { id: "unknown", label: "Unknown" },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setFilter(tab.id)}
-            className={`px-2.5 py-1 rounded-md font-medium transition-all ${
-              filter === tab.id
-                ? "bg-white/[0.08] text-white"
-                : "text-slate-600 hover:text-slate-400"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* Filter Tabs & Legend */}
+      <div className="flex items-center justify-between gap-1 pb-3 border-b border-white/[0.04] text-[11px]">
+        <div className="flex items-center gap-1 overflow-x-auto">
+          <Filter className="w-3 h-3 text-slate-600 mr-1 flex-shrink-0" />
+          {[
+            { id: "all", label: "All Traffic" },
+            { id: "trackers", label: "Trackers & Ads" },
+            { id: "first_party", label: "First Party" },
+            { id: "unknown", label: "Unknown" },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setFilter(tab.id)}
+              className={`px-2.5 py-1 rounded-md font-medium transition-all whitespace-nowrap ${
+                filter === tab.id
+                  ? "bg-white/[0.08] text-white"
+                  : "text-slate-600 hover:text-slate-400"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        <CategoryLegend />
       </div>
 
       {notification && (

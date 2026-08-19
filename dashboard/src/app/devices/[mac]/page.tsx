@@ -14,12 +14,13 @@ import {
   Monitor,
   Router,
   Tablet,
+  Edit2,
   Check,
-  Ban,
-  Shield,
+  X,
 } from "lucide-react";
-import { Device, ConnectionEvent, fetchDeviceDetails, addCustomRule } from "@/lib/api";
+import { Device, ConnectionEvent, fetchDeviceDetails, addCustomRule, renameDevice } from "@/lib/api";
 import { ScoreGauge } from "@/components/ScoreGauge";
+import { CategoryLegend } from "@/components/CategoryLegend";
 
 export default function DeviceDetailPage() {
   const params = useParams();
@@ -34,11 +35,16 @@ export default function DeviceDetailPage() {
 
   const [loading, setLoading] = useState<boolean>(true);
   const [notification, setNotification] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [nameInput, setNameInput] = useState("");
 
   const loadDetails = async () => {
     if (!mac) return;
     const res = await fetchDeviceDetails(mac);
     setDeviceData(res);
+    if (res?.device?.device_name) {
+      setNameInput(res.device.device_name);
+    }
     setLoading(false);
   };
 
@@ -55,16 +61,79 @@ export default function DeviceDetailPage() {
     }
   };
 
+  const handleSaveName = async () => {
+    if (!nameInput.trim()) return;
+    const ok = await renameDevice(mac, nameInput.trim());
+    if (ok) {
+      setNotification(`Device renamed to: ${nameInput.trim()}`);
+      setIsEditing(false);
+      setTimeout(() => setNotification(null), 3000);
+      loadDetails();
+    }
+  };
+
   const getDeviceIcon = (vendor?: string, name?: string) => {
     const text = `${vendor || ""} ${name || ""}`.toLowerCase();
-    if (text.includes("tv") || text.includes("roku") || text.includes("sony") || text.includes("lg electronics")) return Tv;
-    if (text.includes("phone") || text.includes("iphone") || text.includes("android") || text.includes("samsung") && !text.includes("tv")) return Smartphone;
-    if (text.includes("xiaomi") || text.includes("huawei") || text.includes("oneplus") || text.includes("oppo") || text.includes("vivo")) return Smartphone;
+    if (
+      text.includes("this pc") ||
+      text.includes("host") ||
+      text.includes("arpon") ||
+      text.includes("laptop") ||
+      text.includes("desktop") ||
+      text.includes("pc") ||
+      text.includes("macbook")
+    ) {
+      return Laptop;
+    }
+    if (
+      text.includes("dell") ||
+      text.includes("lenovo") ||
+      text.includes("hp ") ||
+      text.includes("asus") ||
+      text.includes("intel") ||
+      text.includes("microsoft")
+    ) {
+      return Monitor;
+    }
+    if (
+      text.includes("tv") ||
+      text.includes("roku") ||
+      text.includes("sony") ||
+      text.includes("lg electronics")
+    ) {
+      return Tv;
+    }
+    if (
+      text.includes("phone") ||
+      text.includes("iphone") ||
+      (text.includes("samsung") && !text.includes("tv")) ||
+      text.includes("xiaomi") ||
+      text.includes("huawei") ||
+      text.includes("oneplus") ||
+      text.includes("oppo") ||
+      text.includes("vivo")
+    ) {
+      return Smartphone;
+    }
     if (text.includes("ipad") || text.includes("tablet")) return Tablet;
-    if (text.includes("apple") || text.includes("mac") || text.includes("laptop")) return Laptop;
-    if (text.includes("dell") || text.includes("lenovo") || text.includes("hp ") || text.includes("asus") || text.includes("intel") || text.includes("microsoft")) return Monitor;
-    if (text.includes("espressif") || text.includes("iot") || text.includes("raspberry")) return Cpu;
-    if (text.includes("tp-link") || text.includes("netgear") || text.includes("router")) return Router;
+    if (
+      text.includes("espressif") ||
+      text.includes("iot") ||
+      text.includes("raspberry") ||
+      text.includes("tuya") ||
+      text.includes("sonoff")
+    ) {
+      return Cpu;
+    }
+    if (
+      text.includes("tp-link") ||
+      text.includes("netgear") ||
+      text.includes("cisco") ||
+      text.includes("router")
+    ) {
+      return Router;
+    }
+    if (text.includes("realtek") || text.includes("liteon") || text.includes("qualcomm")) return Laptop;
     return Wifi;
   };
 
@@ -126,16 +195,55 @@ export default function DeviceDetailPage() {
           {/* Left Device Summary */}
           <div className="space-y-4 flex-1 min-w-0">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-lg bg-white/[0.04] flex items-center justify-center text-slate-400">
+              <div className="w-9 h-9 rounded-lg bg-white/[0.04] flex items-center justify-center text-slate-400 flex-shrink-0">
                 <Icon className="w-4 h-4" />
               </div>
-              <div>
+              <div className="flex-1 min-w-0">
                 <span className="text-[11px] font-mono text-slate-500 uppercase tracking-wider">
                   {device.vendor || "Generic Device"}
                 </span>
-                <h1 className="text-2xl font-bold text-white tracking-tight leading-tight">
-                  {device.device_name || "Observed Host"}
-                </h1>
+
+                {isEditing ? (
+                  <div className="flex items-center gap-2 mt-1">
+                    <input
+                      type="text"
+                      value={nameInput}
+                      onChange={(e) => setNameInput(e.target.value)}
+                      className="px-2 py-1 rounded bg-black/60 border border-cyan-500 text-sm text-white font-semibold focus:outline-none max-w-sm"
+                      autoFocus
+                    />
+                    <button
+                      onClick={handleSaveName}
+                      className="p-1 rounded bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/40"
+                      title="Save name"
+                    >
+                      <Check className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setNameInput(device.device_name || "");
+                        setIsEditing(false);
+                      }}
+                      className="p-1 rounded bg-white/[0.05] text-slate-400 hover:text-white"
+                      title="Cancel"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 group/title">
+                    <h1 className="text-2xl font-bold text-white tracking-tight leading-tight truncate">
+                      {device.device_name || "Observed Host"}
+                    </h1>
+                    <button
+                      onClick={() => setIsEditing(true)}
+                      className="p-1 text-slate-600 hover:text-cyan-400 opacity-0 group-hover/title:opacity-100 transition-opacity"
+                      title="Rename device"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -200,7 +308,10 @@ export default function DeviceDetailPage() {
           <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider">
             Recent TLS Handshakes
           </h3>
-          <span className="text-[11px] font-mono text-slate-600">{recent_connections.length} records</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-mono text-slate-600">{recent_connections.length} records</span>
+            <CategoryLegend />
+          </div>
         </div>
 
         <div className="rounded-xl bg-white/[0.02] border border-white/[0.04] overflow-hidden">
