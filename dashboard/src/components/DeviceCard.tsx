@@ -2,13 +2,14 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { Laptop, Smartphone, Tv, Cpu, Wifi, Monitor, Router, Tablet, ArrowRight, Edit2, Check, X } from "lucide-react";
-import { Device, renameDevice } from "@/lib/api";
+import { Laptop, Smartphone, Tv, Cpu, Wifi, Monitor, Router, Tablet, ArrowRight, Edit2, Check, X, Trash2 } from "lucide-react";
+import { Device, renameDevice, deleteDevice } from "@/lib/api";
 import { ScoreGauge } from "./ScoreGauge";
 
 interface DeviceCardProps {
   device: Device;
   onRenamed?: (mac: string, newName: string) => void;
+  onDeleted?: (mac: string) => void;
 }
 
 export const DeviceCard: React.FC<DeviceCardProps> = ({ device, onRenamed }) => {
@@ -114,23 +115,41 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({ device, onRenamed }) => 
     setIsEditing(false);
   };
 
+  const handleDeleteDevice = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (confirm(`Remove device "${displayName}" (${device.mac_address}) from monitoring?`)) {
+      const ok = await deleteDevice(device.mac_address);
+      if (ok) {
+        onDeleted?.(device.mac_address);
+      }
+    }
+  };
+
   const Icon = getDeviceIcon(device.vendor, displayName);
   const score = device.current_score ?? 100;
   const trackerCount = device.current_tracker_count ?? 0;
   const totalCount = device.current_total_count ?? 0;
   const trackerPercent = totalCount > 0 ? Math.round((trackerCount / totalCount) * 100) : 0;
+  const isOnline = device.is_online !== false;
 
   return (
     <Link
       href={`/devices/${encodeURIComponent(device.mac_address)}`}
-      className="group block rounded-xl p-4 bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.05] hover:border-white/[0.08] transition-all duration-200"
+      className="group relative block rounded-xl p-4 bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.05] hover:border-white/[0.08] transition-all duration-200"
     >
       <div className="flex items-start justify-between gap-3">
         {/* Left info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2.5 mb-2">
-            <div className="w-8 h-8 rounded-lg bg-white/[0.04] flex items-center justify-center text-slate-400 group-hover:text-cyan-400 transition-colors flex-shrink-0">
+            <div className="relative w-8 h-8 rounded-lg bg-white/[0.04] flex items-center justify-center text-slate-400 group-hover:text-cyan-400 transition-colors flex-shrink-0">
               <Icon className="w-4 h-4" />
+              {isOnline && (
+                <span
+                  className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-[#0B0F19] animate-pulse"
+                  title="Connected to Wi-Fi"
+                />
+              )}
             </div>
             <div className="min-w-0 flex-1">
               {isEditing ? (
@@ -179,11 +198,24 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({ device, onRenamed }) => 
                   >
                     <Edit2 className="w-3 h-3" />
                   </button>
+                  <button
+                    onClick={handleDeleteDevice}
+                    className="p-0.5 text-slate-600 hover:text-rose-400 opacity-0 group-hover/name:opacity-100 transition-opacity"
+                    title="Forget / Delete device"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
                 </div>
               )}
-              <p className="text-[11px] text-slate-500 truncate mt-0.5">
-                {device.vendor || "Unknown Vendor"}
-              </p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-[11px] text-slate-500 truncate">
+                  {device.vendor || "Unknown Vendor"}
+                </span>
+                <span className="text-slate-700">·</span>
+                <span className={`text-[10px] font-mono ${isOnline ? "text-emerald-400/90" : "text-slate-600"}`}>
+                  {isOnline ? "Connected" : "Offline"}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -211,12 +243,25 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({ device, onRenamed }) => 
           </div>
         </div>
 
-        {/* Right Gauge */}
-        <div className="flex flex-col items-center pt-1">
-          <ScoreGauge score={score} size={68} strokeWidth={5} showLabel={false} />
-          <span className="text-[10px] mt-1.5 text-slate-600 flex items-center gap-0.5 group-hover:text-cyan-500 transition-colors">
-            Details <ArrowRight className="w-2.5 h-2.5" />
-          </span>
+        {/* Right Gauge or Wi-Fi Status */}
+        <div className="flex flex-col items-center justify-center pt-1 min-w-[70px]">
+          {totalCount > 0 ? (
+            <>
+              <ScoreGauge score={score} size={64} strokeWidth={5} showLabel={false} />
+              <span className="text-[10px] mt-1 text-slate-500 flex items-center gap-0.5 group-hover:text-cyan-400 transition-colors">
+                Score {score} <ArrowRight className="w-2.5 h-2.5" />
+              </span>
+            </>
+          ) : (
+            <div className="text-center py-2 px-1">
+              <div className="w-10 h-10 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center mx-auto mb-1 text-cyan-400">
+                <Wifi className="w-4 h-4" />
+              </div>
+              <span className="text-[10px] font-medium text-slate-400 group-hover:text-cyan-300 transition-colors flex items-center justify-center gap-0.5">
+                Profile <ArrowRight className="w-2.5 h-2.5" />
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </Link>

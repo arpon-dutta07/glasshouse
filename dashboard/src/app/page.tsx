@@ -208,6 +208,7 @@ export default function OverviewPage() {
                     key={device.mac_address}
                     device={device}
                     onRenamed={() => loadData()}
+                    onDeleted={() => loadData()}
                   />
                 ))}
               </div>

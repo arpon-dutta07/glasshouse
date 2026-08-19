@@ -233,6 +233,18 @@ export async function renameDevice(mac: string, newName: string): Promise<boolea
   }
 }
 
+export async function deleteDevice(mac: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/api/devices/${encodeURIComponent(mac)}`, {
+      method: "DELETE",
+    });
+    return res.ok;
+  } catch (err) {
+    console.error("deleteDevice error:", err);
+    return false;
+  }
+}
+
 export async function scanNetworkDevices(): Promise<{ discovered: any[]; devices: Device[] } | null> {
   try {
     const res = await fetch(`${API_BASE}/api/devices/scan`, {
