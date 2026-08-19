@@ -1,7 +1,8 @@
-"""Blocklist downloader, parser, and caching manager."""
+"""Blocklist downloader, parser, and caching manager for Layer 1 multi-source merging."""
 
 import os
 import re
+import json
 import logging
 from pathlib import Path
 from typing import Dict, List, Set, Tuple
@@ -9,11 +10,19 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-# Default public blocklist sources
+# Default public blocklist sources merged in Layer 1
 DEFAULT_SOURCES = {
     "stevenblack_unified": {
         "url": "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts",
         "category": "tracker",
+    },
+    "easyprivacy": {
+        "url": "https://v.firebog.net/hosts/Easyprivacy.txt",
+        "category": "tracker",
+    },
+    "easylist_ads": {
+        "url": "https://v.firebog.net/hosts/Easylist.txt",
+        "category": "ad_network",
     },
     "oisd_basic": {
         "url": "https://big.oisd.nl/domainswg",
@@ -21,7 +30,7 @@ DEFAULT_SOURCES = {
     },
 }
 
-# Curated embedded rules for instant initialization & offline reliability
+# Curated embedded rules for instant offline initialization & tests
 SEED_RULES: Dict[str, List[str]] = {
     "ad_network": [
         "doubleclick.net",
@@ -44,6 +53,12 @@ SEED_RULES: Dict[str, List[str]] = {
         "pubmatic.com",
         "openx.net",
         "smartadserver.com",
+        "advertising.com",
+        "yieldmo.com",
+        "inmobi.com",
+        "ironsrc.com",
+        "chartboost.com",
+        "adroll.com",
     ],
     "tracker": [
         "google-analytics.com",
@@ -67,6 +82,7 @@ SEED_RULES: Dict[str, List[str]] = {
         "log-upload.samsungcloudsolution.com",
         "telemetry.microsoft.com",
         "v10.events.data.microsoft.com",
+        "v20.events.data.microsoft.com",
         "watson.telemetry.microsoft.com",
         "diagnostics.apple.com",
         "iadsdk.apple.com",
@@ -82,6 +98,18 @@ SEED_RULES: Dict[str, List[str]] = {
         "quantserve.com",
         "yandex.ru/metrika",
         "mc.yandex.ru",
+        "braze.com",
+        "mparticle.com",
+        "singular.net",
+        "heap.io",
+        "fullstory.com",
+    ],
+    "malicious": [
+        "malware-delivery.test",
+        "phishing-gateway.cc",
+        "c2-payload.top",
+        "trojan-drop.xyz",
+        "lockbit-ransom.onion.pet",
     ],
     "first_party": [
         "google.com",
@@ -101,6 +129,8 @@ SEED_RULES: Dict[str, List[str]] = {
         "ubuntu.com",
         "debian.org",
         "duckduckgo.com",
+        "openai.com",
+        "anthropic.com",
     ]
 }
 
@@ -112,22 +142,27 @@ class BlocklistLoader:
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
-    def parse_hosts_text(self, text: str) -> Set[str]:
-        """Parses /etc/hosts or StevenBlack hosts format."""
+    def parse_domains_text(self, text: str) -> Set[str]:
+        """Parses /etc/hosts, EasyList/EasyPrivacy text, or plain domain list formats."""
         domains = set()
         for line in text.splitlines():
             line = line.strip()
-            if not line or line.startswith("#"):
+            if not line or line.startswith("#") or line.startswith("!"):
                 continue
-            # Remove inline comments
+            # Strip inline comments
             line = line.split("#")[0].strip()
+            # Strip Adblock Plus filter syntax (e.g. ||domain.com^ or ||domain.com^)
+            if line.startswith("||") and "^" in line:
+                line = line.replace("||", "").split("^")[0].strip()
             tokens = line.split()
             if len(tokens) >= 2:
                 ip, domain = tokens[0], tokens[1]
                 if ip in ("0.0.0.0", "127.0.0.1") and domain not in ("localhost", "local", "broadcasthost"):
-                    domains.add(domain.lower())
+                    domains.add(domain.lower().rstrip("."))
             elif len(tokens) == 1:
-                domains.add(tokens[0].lower())
+                clean_dom = tokens[0].lower().rstrip(".").lstrip("*.")
+                if "." in clean_dom and not clean_dom.startswith("/"):
+                    domains.add(clean_dom)
         return domains
 
     def load_seed_rules(self) -> List[Tuple[str, str, str]]:
@@ -144,7 +179,7 @@ class BlocklistLoader:
         url: str,
         category: str = "tracker",
         force_refresh: bool = False,
-        timeout: int = 10,
+        timeout: int = 8,
     ) -> List[Tuple[str, str, str]]:
         """Loads a blocklist from disk cache or downloads it from remote URL."""
         cache_file = self.cache_dir / f"{name}.txt"
@@ -153,7 +188,7 @@ class BlocklistLoader:
         if cache_file.exists() and not force_refresh:
             logger.info(f"Loading blocklist '{name}' from local cache {cache_file}")
             text = cache_file.read_text(encoding="utf-8", errors="ignore")
-            domains = self.parse_hosts_text(text)
+            domains = self.parse_domains_text(text)
             for d in domains:
                 rules.append((d, category, name))
             return rules
@@ -163,7 +198,7 @@ class BlocklistLoader:
             resp = requests.get(url, timeout=timeout)
             if resp.status_code == 200:
                 cache_file.write_text(resp.text, encoding="utf-8")
-                domains = self.parse_hosts_text(resp.text)
+                domains = self.parse_domains_text(resp.text)
                 for d in domains:
                     rules.append((d, category, name))
                 logger.info(f"Loaded {len(domains)} rules from {name}")
@@ -173,7 +208,7 @@ class BlocklistLoader:
 
         if cache_file.exists():
             text = cache_file.read_text(encoding="utf-8", errors="ignore")
-            domains = self.parse_hosts_text(text)
+            domains = self.parse_domains_text(text)
             for d in domains:
                 rules.append((d, category, name))
 

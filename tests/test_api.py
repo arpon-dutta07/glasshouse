@@ -133,3 +133,54 @@ async def test_custom_rules_flow(client):
 
     resp_after = await client.get("/api/custom-rules")
     assert resp_after.json()["count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_blocking_api_flow(client):
+    # 1. Get initial blocking status
+    resp_status = await client.get("/api/blocking/status")
+    assert resp_status.status_code == 200
+    assert "test_mode" in resp_status.json()
+
+    # 2. Toggle Mode
+    resp_mode = await client.post("/api/blocking/mode", json={"test_mode": True})
+    assert resp_mode.status_code == 200
+    assert resp_mode.json()["test_mode"] is True
+
+    # 3. Block a tracker domain in Test Mode
+    block_payload = {
+        "domain": "test-telemetry.snooper.io",
+        "category": "tracker",
+        "reason": "Test tracker block"
+    }
+    resp_block = await client.post("/api/blocking/block", json=block_payload)
+    assert resp_block.status_code == 200
+    assert resp_block.json()["status"] == "success"
+
+    # 4. Check Protected Domains safety guardrail rejection
+    resp_protected = await client.post(
+        "/api/blocking/block",
+        json={"domain": "google.com", "category": "tracker"}
+    )
+    assert resp_protected.status_code == 400
+    assert "critical infrastructure" in resp_protected.json()["detail"]
+
+    # 5. List blocked domains
+    resp_list = await client.get("/api/blocking/domains")
+    assert resp_list.status_code == 200
+    assert any(b["domain"] == "test-telemetry.snooper.io" for b in resp_list.json()["domains"])
+
+    # 6. Unblock domain
+    resp_unblock = await client.post("/api/blocking/unblock", json={"domain": "test-telemetry.snooper.io"})
+    assert resp_unblock.status_code == 200
+    assert resp_unblock.json()["status"] == "success"
+
+
+@pytest.mark.asyncio
+async def test_enrichment_api(client):
+    resp = await client.get("/api/blocking/enrichment/example.com")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["domain"] == "example.com"
+    assert "summary_label" in data
+

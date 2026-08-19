@@ -11,7 +11,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.database import Database
 from backend.device_tracker import DeviceTracker
 from backend.pipeline import Pipeline
+from backend.hosts_blocker import HostsBlocker
 from classifier.classifier import DomainClassifier
+from classifier.threat_intel import ThreatIntelService
+from classifier.enrichment import DomainEnrichmentService
 from scoring.engine import ScoringService
 from capture.sniffer import PacketSniffer
 from capture.tls_parser import SNIRecord
@@ -20,6 +23,7 @@ from backend.routes.devices import router as devices_router
 from backend.routes.connections import router as connections_router
 from backend.routes.stats import router as stats_router
 from backend.routes.rules import router as rules_router
+from backend.routes.blocking import router as blocking_router
 from backend.routes.ws import router as ws_router, manager as ws_manager
 
 logging.basicConfig(
@@ -38,6 +42,9 @@ class AppState:
         self.scoring_service: Optional[ScoringService] = None
         self.sniffer: Optional[PacketSniffer] = None
         self.capture_thread: Optional[threading.Thread] = None
+        self.hosts_blocker: Optional[HostsBlocker] = None
+        self.threat_intel: Optional[ThreatIntelService] = None
+        self.domain_enrichment: Optional[DomainEnrichmentService] = None
         self.db_path: str = "data/glasshouse.db"
 
 
@@ -53,11 +60,18 @@ async def lifespan(app: FastAPI):
     app_state.database = Database(db_path=app_state.db_path)
     await app_state.database.initialize()
 
-    # 2. Initialize Classifier and load rules
-    app_state.classifier = DomainClassifier()
+    # 2. Initialize Threat Intel and Domain Enrichment Services
+    app_state.threat_intel = ThreatIntelService()
+    app_state.domain_enrichment = DomainEnrichmentService()
+
+    # 3. Initialize Multi-Layer Domain Classifier
+    app_state.classifier = DomainClassifier(
+        threat_intel=app_state.threat_intel,
+        enrichment=app_state.domain_enrichment,
+    )
     app_state.classifier.load_rules(download_remote=False)
 
-    # 3. Load stored custom rules into classifier
+    # 4. Load stored custom rules into classifier
     stored_rules = await app_state.database.get_custom_rules()
     for rule in stored_rules:
         if rule["action"] == "allow":
@@ -65,7 +79,13 @@ async def lifespan(app: FastAPI):
         else:
             app_state.classifier.add_custom_blocklist(rule["domain"], category=rule["category"])
 
-    # 4. Initialize DeviceTracker and run vendor re-resolution migration on existing devices
+    # 5. Initialize Hosts Blocker & load blocked domains into classifier
+    app_state.hosts_blocker = HostsBlocker()
+    blocked_domains = await app_state.database.get_blocked_domains()
+    for b in blocked_domains:
+        app_state.classifier.add_custom_blocklist(b["domain"], category=b.get("category", "tracker"))
+
+    # 6. Initialize DeviceTracker and run vendor re-resolution migration on existing devices
     app_state.device_tracker = DeviceTracker()
     try:
         await app_state.database.re_resolve_all_device_vendors(app_state.device_tracker)
@@ -73,7 +93,7 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Could not re-resolve existing device vendors: {e}")
 
-    # 4b. Perform initial Wi-Fi network device discovery scan in background
+    # 6b. Perform initial Wi-Fi network device discovery scan in background
     async def initial_network_scan():
         try:
             mapping = await asyncio.to_thread(app_state.device_tracker.scan_local_subnet)
@@ -102,9 +122,8 @@ async def lifespan(app: FastAPI):
 
     asyncio.create_task(initial_network_scan())
 
-    # 5. Initialize Pipeline with WebSocket broadcast hook
+    # 7. Initialize Pipeline with WebSocket broadcast hook
     def broadcast_to_ws(event: dict):
-        # Schedule broadcast on asyncio event loop
         loop = asyncio.get_event_loop()
         if loop.is_running():
             asyncio.create_task(ws_manager.broadcast(event))
@@ -116,7 +135,7 @@ async def lifespan(app: FastAPI):
         on_event=broadcast_to_ws,
     )
 
-    # 6. Initialize and start Scoring Service
+    # 8. Initialize and start Scoring Service
     app_state.scoring_service = ScoringService(
         database=app_state.database,
         interval_seconds=60,
@@ -124,7 +143,7 @@ async def lifespan(app: FastAPI):
     )
     app_state.scoring_service.start()
 
-    # 7. Start live packet capture in background thread
+    # 9. Start live packet capture in background thread
     capture_loop = asyncio.get_event_loop()
 
     def on_sni_captured(record: SNIRecord):
@@ -172,8 +191,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Glasshouse Privacy Observability API",
-    description="Network TLS ClientHello SNI Privacy Classification and Device Scoring Engine",
-    version="1.0.0",
+    description="Network TLS ClientHello SNI Privacy Classification, Threat Intel, and Hosts-File Blocking Engine",
+    version="1.1.0",
     lifespan=lifespan,
 )
 
@@ -191,13 +210,14 @@ app.include_router(devices_router)
 app.include_router(connections_router)
 app.include_router(stats_router)
 app.include_router(rules_router)
+app.include_router(blocking_router)
 app.include_router(ws_router)
 
 
 @app.get("/api/health")
 async def health_check():
     """Health check endpoint."""
-    return {"status": "ok", "service": "glasshouse", "version": "1.0.0"}
+    return {"status": "ok", "service": "glasshouse", "version": "1.1.0"}
 
 
 if __name__ == "__main__":

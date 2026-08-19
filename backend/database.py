@@ -3,7 +3,7 @@
 import os
 from pathlib import Path
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 import aiosqlite
 
 DEFAULT_DB_PATH = "data/glasshouse.db"
@@ -52,6 +52,34 @@ CREATE TABLE IF NOT EXISTS custom_rules (
     category TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS blocked_domains (
+    domain TEXT PRIMARY KEY,
+    blocked_at TIMESTAMP NOT NULL,
+    category TEXT NOT NULL,
+    reason TEXT,
+    mode TEXT NOT NULL DEFAULT 'test',
+    is_active INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS domain_enrichments (
+    domain TEXT PRIMARY KEY,
+    ip_address TEXT,
+    created_year INTEGER,
+    age_days INTEGER,
+    cert_org TEXT,
+    hosting_provider TEXT,
+    summary_label TEXT,
+    threat_vendors INTEGER DEFAULT 0,
+    threat_source TEXT,
+    threat_details TEXT,
+    cached_at TIMESTAMP NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS app_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
 """
 
 
@@ -98,15 +126,6 @@ class Database:
                     )
             await db.commit()
 
-    async def update_device_name(self, mac_address: str, device_name: str):
-        """Updates custom friendly device name in the database."""
-        async with aiosqlite.connect(self.db_path) as db:
-            await db.execute(
-                "UPDATE devices SET device_name = ? WHERE mac_address = ?",
-                (device_name.strip(), mac_address.lower().strip()),
-            )
-            await db.commit()
-
     async def upsert_device(
         self,
         mac_address: str,
@@ -115,10 +134,9 @@ class Database:
         vendor: Optional[str] = None,
         timestamp: Optional[datetime] = None,
     ):
-        """Inserts or updates a device record."""
-        mac_address = mac_address.lower().strip()
-        ts = (timestamp or datetime.now(timezone.utc)).isoformat()
-
+        """Inserts or updates a network device record."""
+        now = (timestamp or datetime.now(timezone.utc)).isoformat()
+        mac = mac_address.lower().strip()
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute(
                 """
@@ -130,100 +148,59 @@ class Database:
                     vendor = COALESCE(excluded.vendor, devices.vendor),
                     last_seen = excluded.last_seen
                 """,
-                (mac_address, ip_address, device_name, vendor, ts, ts),
+                (mac, ip_address, device_name, vendor, now, now),
             )
             await db.commit()
+
+    async def update_device_name(self, mac_address: str, device_name: str):
+        """Updates the custom friendly name for a device."""
+        mac = mac_address.lower().strip()
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "UPDATE devices SET device_name = ? WHERE mac_address = ?",
+                (device_name.strip(), mac),
+            )
+            await db.commit()
+
+    async def get_device(self, mac_address: str) -> Optional[Dict[str, Any]]:
+        """Retrieves a single device by MAC address."""
+        mac = mac_address.lower().strip()
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute("SELECT * FROM devices WHERE mac_address = ?", (mac,))
+            row = await cursor.fetchone()
+            return dict(row) if row else None
+
+    async def get_all_devices(self) -> List[Dict[str, Any]]:
+        """Retrieves all observed devices ordered by last seen."""
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute("SELECT * FROM devices ORDER BY last_seen DESC")
+            rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
 
     async def record_connection(
         self,
         sni_domain: str,
         classification: str,
-        timestamp: Optional[datetime] = None,
         device_mac: Optional[str] = None,
         destination_ip: Optional[str] = None,
         list_source: Optional[str] = None,
+        timestamp: Optional[datetime] = None,
     ) -> int:
-        """Inserts a connection record."""
+        """Records a new TLS ClientHello connection event."""
         ts = (timestamp or datetime.now(timezone.utc)).isoformat()
-        if device_mac:
-            device_mac = device_mac.lower().strip()
-
+        mac = device_mac.lower().strip() if device_mac else None
         async with aiosqlite.connect(self.db_path) as db:
             cursor = await db.execute(
                 """
                 INSERT INTO connections (device_mac, timestamp, destination_ip, sni_domain, classification, list_source)
                 VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                (device_mac, ts, destination_ip, sni_domain.lower(), classification, list_source),
+                (mac, ts, destination_ip, sni_domain.lower().strip(), classification, list_source),
             )
             await db.commit()
             return cursor.lastrowid
-
-    async def record_score(
-        self,
-        device_mac: str,
-        score: int,
-        tracker_count: int,
-        total_count: int,
-        computed_at: Optional[datetime] = None,
-    ):
-        """Inserts a device score entry."""
-        ts = (computed_at or datetime.now(timezone.utc)).isoformat()
-        async with aiosqlite.connect(self.db_path) as db:
-            await db.execute(
-                """
-                INSERT INTO device_scores (device_mac, computed_at, score, tracker_count, total_count)
-                VALUES (?, ?, ?, ?, ?)
-                """,
-                (device_mac.lower().strip(), ts, score, tracker_count, total_count),
-            )
-            await db.commit()
-
-    async def get_all_devices(self) -> List[Dict[str, Any]]:
-        """Returns all registered devices with their latest score and stats."""
-        async with aiosqlite.connect(self.db_path) as db:
-            db.row_factory = aiosqlite.Row
-            cursor = await db.execute(
-                """
-                SELECT 
-                    d.mac_address,
-                    d.ip_address,
-                    d.device_name,
-                    d.vendor,
-                    d.first_seen,
-                    d.last_seen,
-                    s.score as current_score,
-                    s.tracker_count as current_tracker_count,
-                    s.total_count as current_total_count,
-                    s.computed_at as score_computed_at
-                FROM devices d
-                LEFT JOIN (
-                    SELECT device_mac, score, tracker_count, total_count, computed_at
-                    FROM device_scores
-                    WHERE (device_mac, computed_at) IN (
-                        SELECT device_mac, MAX(computed_at)
-                        FROM device_scores
-                        GROUP BY device_mac
-                    )
-                ) s ON d.mac_address = s.device_mac
-                ORDER BY d.last_seen DESC
-                """
-            )
-            rows = await cursor.fetchall()
-            return [dict(row) for row in rows]
-
-    async def get_device(self, mac_address: str) -> Optional[Dict[str, Any]]:
-        """Returns details for a single device."""
-        async with aiosqlite.connect(self.db_path) as db:
-            db.row_factory = aiosqlite.Row
-            cursor = await db.execute(
-                """
-                SELECT * FROM devices WHERE mac_address = ?
-                """,
-                (mac_address.lower().strip(),),
-            )
-            row = await cursor.fetchone()
-            return dict(row) if row else None
 
     async def get_recent_connections(
         self,
@@ -231,9 +208,14 @@ class Database:
         device_mac: Optional[str] = None,
         classification: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
-        """Returns recent connections with optional filters."""
-        query = "SELECT c.*, d.device_name, d.vendor FROM connections c LEFT JOIN devices d ON c.device_mac = d.mac_address WHERE 1=1"
-        params = []
+        """Retrieves recent connections with optional filters."""
+        query = """
+            SELECT c.*, d.device_name, d.vendor, d.ip_address as src_ip
+            FROM connections c
+            LEFT JOIN devices d ON c.device_mac = d.mac_address
+            WHERE 1=1
+        """
+        params: List[Any] = []
 
         if device_mac:
             query += " AND c.device_mac = ?"
@@ -247,16 +229,25 @@ class Database:
 
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
-            cursor = await db.execute(query, tuple(params))
+            cursor = await db.execute(query, params)
             rows = await cursor.fetchall()
             return [dict(row) for row in rows]
+
+    async def get_connections_in_window(
+        self,
+        device_mac: str,
+        since_timestamp: datetime,
+    ) -> List[Dict[str, Any]]:
+        """Retrieves all connections for a device since a given timestamp."""
+        ts_str = since_timestamp.isoformat()
+        return await self.get_device_connections_since(device_mac, ts_str)
 
     async def get_device_connections_since(
         self,
         device_mac: str,
         since_iso: str,
     ) -> List[Dict[str, Any]]:
-        """Returns connections for a device since a given ISO timestamp."""
+        """Retrieves connections for a device since an ISO timestamp string."""
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
             cursor = await db.execute(
@@ -270,12 +261,66 @@ class Database:
             rows = await cursor.fetchall()
             return [dict(row) for row in rows]
 
-    async def get_score_history(
+    async def record_device_score(
         self,
         device_mac: str,
-        limit: int = 100,
+        score: int,
+        tracker_count: int,
+        total_count: int,
+        computed_at: Optional[datetime] = None,
+    ):
+        """Saves a computed privacy score snapshot."""
+        ts = (computed_at or datetime.now(timezone.utc)).isoformat()
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                """
+                INSERT INTO device_scores (device_mac, computed_at, score, tracker_count, total_count)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (device_mac.lower().strip(), ts, score, tracker_count, total_count),
+            )
+            await db.commit()
+
+    async def record_score(
+        self,
+        device_mac: str,
+        score: int,
+        tracker_count: int,
+        total_count: int,
+        computed_at: Optional[datetime] = None,
+    ):
+        """Alias for record_device_score."""
+        return await self.record_device_score(
+            device_mac=device_mac,
+            score=score,
+            tracker_count=tracker_count,
+            total_count=total_count,
+            computed_at=computed_at,
+        )
+
+    async def get_latest_scores(self) -> Dict[str, Dict[str, Any]]:
+        """Returns the most recent score snapshot for each device."""
+        query = """
+            SELECT s.*
+            FROM device_scores s
+            INNER JOIN (
+                SELECT device_mac, MAX(computed_at) as max_time
+                FROM device_scores
+                GROUP BY device_mac
+            ) latest ON s.device_mac = latest.device_mac AND s.computed_at = latest.max_time
+        """
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute(query)
+            rows = await cursor.fetchall()
+            return {row["device_mac"]: dict(row) for row in rows}
+
+    async def get_device_score_history(
+        self,
+        device_mac: str,
+        limit: int = 24,
     ) -> List[Dict[str, Any]]:
-        """Returns score history for a device."""
+        """Returns historical scores for a device."""
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
             cursor = await db.execute(
@@ -288,6 +333,14 @@ class Database:
             )
             rows = await cursor.fetchall()
             return [dict(row) for row in rows]
+
+    async def get_score_history(
+        self,
+        device_mac: str,
+        limit: int = 50,
+    ) -> List[Dict[str, Any]]:
+        """Alias for get_device_score_history."""
+        return await self.get_device_score_history(device_mac=device_mac, limit=limit)
 
     async def add_custom_rule(self, domain: str, action: str, category: str):
         """Adds or updates a custom user rule."""
@@ -318,4 +371,151 @@ class Database:
         """Deletes a custom user rule."""
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute("DELETE FROM custom_rules WHERE domain = ?", (domain.lower().strip(),))
+            await db.commit()
+
+    # --- Blocked Domains Table Queries ---
+
+    async def add_blocked_domain(
+        self,
+        domain: str,
+        category: str,
+        reason: str = "",
+        mode: str = "test",
+    ):
+        """Records a domain in the blocked domains table."""
+        ts = datetime.now(timezone.utc).isoformat()
+        dom = domain.lower().strip()
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                """
+                INSERT INTO blocked_domains (domain, blocked_at, category, reason, mode, is_active)
+                VALUES (?, ?, ?, ?, ?, 1)
+                ON CONFLICT(domain) DO UPDATE SET
+                    blocked_at = excluded.blocked_at,
+                    category = excluded.category,
+                    reason = excluded.reason,
+                    mode = excluded.mode,
+                    is_active = 1
+                """,
+                (dom, ts, category, reason, mode),
+            )
+            await db.commit()
+
+    async def remove_blocked_domain(self, domain: str):
+        """Removes or deactivates a domain from blocked_domains."""
+        dom = domain.lower().strip()
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("DELETE FROM blocked_domains WHERE domain = ?", (dom,))
+            await db.commit()
+
+    async def get_blocked_domains(self) -> List[Dict[str, Any]]:
+        """Returns all currently blocked domains."""
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute("SELECT * FROM blocked_domains WHERE is_active = 1 ORDER BY blocked_at DESC")
+            rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
+
+    async def get_blocked_domain_set(self) -> Set[str]:
+        """Returns set of all active blocked domains for instant lookups."""
+        async with aiosqlite.connect(self.db_path) as db:
+            cursor = await db.execute("SELECT domain FROM blocked_domains WHERE is_active = 1")
+            rows = await cursor.fetchall()
+            return {r[0].lower().strip() for r in rows}
+
+    async def is_domain_blocked(self, domain: str) -> bool:
+        """Checks if a domain or its parent domain is actively blocked."""
+        dom = domain.lower().strip()
+        blocked_set = await self.get_blocked_domain_set()
+        if dom in blocked_set:
+            return True
+        for b in blocked_set:
+            if dom.endswith("." + b):
+                return True
+        return False
+
+    # --- App Settings Queries ---
+
+    async def get_setting(self, key: str, default: str = "") -> str:
+        """Retrieves a persistent setting value."""
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute("SELECT value FROM app_settings WHERE key = ?", (key,))
+            row = await cursor.fetchone()
+            return row["value"] if row else default
+
+    async def set_setting(self, key: str, value: str):
+        """Saves a persistent setting value."""
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                """
+                INSERT INTO app_settings (key, value)
+                VALUES (?, ?)
+                ON CONFLICT(key) DO UPDATE SET value = excluded.value
+                """,
+                (key, str(value)),
+            )
+            await db.commit()
+
+    # --- Domain Enrichment Cache Queries ---
+
+    async def get_domain_enrichment(self, domain: str) -> Optional[Dict[str, Any]]:
+        """Retrieves cached enrichment data for a domain."""
+        dom = domain.lower().strip()
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute("SELECT * FROM domain_enrichments WHERE domain = ?", (dom,))
+            row = await cursor.fetchone()
+            return dict(row) if row else None
+
+    async def upsert_domain_enrichment(
+        self,
+        domain: str,
+        ip_address: Optional[str] = None,
+        created_year: Optional[int] = None,
+        age_days: Optional[int] = None,
+        cert_org: Optional[str] = None,
+        hosting_provider: Optional[str] = None,
+        summary_label: str = "",
+        threat_vendors: int = 0,
+        threat_source: str = "",
+        threat_details: str = "",
+    ):
+        """Caches domain enrichment data."""
+        now = datetime.now(timezone.utc).isoformat()
+        dom = domain.lower().strip()
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                """
+                INSERT INTO domain_enrichments (
+                    domain, ip_address, created_year, age_days, cert_org,
+                    hosting_provider, summary_label, threat_vendors, threat_source, threat_details, cached_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(domain) DO UPDATE SET
+                    ip_address = COALESCE(excluded.ip_address, domain_enrichments.ip_address),
+                    created_year = COALESCE(excluded.created_year, domain_enrichments.created_year),
+                    age_days = COALESCE(excluded.age_days, domain_enrichments.age_days),
+                    cert_org = COALESCE(excluded.cert_org, domain_enrichments.cert_org),
+                    hosting_provider = COALESCE(excluded.hosting_provider, domain_enrichments.hosting_provider),
+                    summary_label = excluded.summary_label,
+                    threat_vendors = excluded.threat_vendors,
+                    threat_source = excluded.threat_source,
+                    threat_details = excluded.threat_details,
+                    cached_at = excluded.cached_at
+                """,
+                (
+                    dom,
+                    ip_address,
+                    created_year,
+                    age_days,
+                    cert_org,
+                    hosting_provider,
+                    summary_label,
+                    threat_vendors,
+                    threat_source,
+                    threat_details,
+                    now,
+                ),
+            )
             await db.commit()

@@ -79,5 +79,6 @@ async def test_scoring_service_computation(tmp_path):
     assert 0 <= scores[mac].score <= 100
 
     # Verify score saved in database
-    devices = await db.get_all_devices()
-    assert devices[0]["current_score"] == scores[mac].score
+    latest_scores = await db.get_latest_scores()
+    assert mac in latest_scores
+    assert latest_scores[mac]["score"] == scores[mac].score

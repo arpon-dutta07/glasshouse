@@ -1,10 +1,18 @@
-"""Main Domain Classifier engine for Glasshouse."""
+"""Main Domain Classifier engine for Glasshouse.
+
+Multi-Layer Architecture:
+- Layer 1: Merged public and seed blocklists (StevenBlack, Disconnect, EasyPrivacy, EasyList, OISD).
+- Layer 2: Malicious / Threat Detection (URLhaus and VirusTotal v3 with vendor consensus >= 3).
+- Layer 3: Secondary signal enrichment fallback (WHOIS age, TLS cert organization, Cloud host).
+"""
 
 from dataclasses import dataclass
 import logging
 from typing import Dict, List, Optional, Set
 from classifier.trie import SuffixDomainTrie
 from classifier.blocklist_loader import BlocklistLoader, DEFAULT_SOURCES
+from classifier.threat_intel import ThreatIntelService, ThreatReport
+from classifier.enrichment import DomainEnrichmentService
 
 logger = logging.getLogger(__name__)
 
@@ -12,18 +20,28 @@ logger = logging.getLogger(__name__)
 @dataclass
 class DomainClassification:
     domain: str
-    category: str  # 'tracker' | 'ad_network' | 'first_party' | 'unknown'
+    category: str  # 'tracker' | 'ad_network' | 'malicious' | 'first_party' | 'unknown'
     is_blocked: bool
     source: str
     matched_rule: Optional[str] = None
+    threat_vendors: int = 0
+    threat_details: Optional[str] = None
+    summary_label: Optional[str] = None
 
 
 class DomainClassifier:
-    """Classifies domain names into privacy categories using a high-performance trie."""
+    """Classifies domain names into privacy categories using multi-layer pipeline."""
 
-    def __init__(self, cache_dir: str = "data/blocklists"):
+    def __init__(
+        self,
+        cache_dir: str = "data/blocklists",
+        threat_intel: Optional[ThreatIntelService] = None,
+        enrichment: Optional[DomainEnrichmentService] = None,
+    ):
         self.loader = BlocklistLoader(cache_dir=cache_dir)
         self.trie = SuffixDomainTrie()
+        self.threat_intel = threat_intel or ThreatIntelService()
+        self.enrichment = enrichment or DomainEnrichmentService()
         self.custom_allowlist: Set[str] = set()
         self.custom_blocklist: Dict[str, str] = {}  # domain -> category
         self.is_loaded = False
@@ -35,7 +53,7 @@ class DomainClassifier:
         for domain, category, source in seed_rules:
             self.trie.insert(domain, category=category, source=source)
 
-        # 2. Optionally load remote blocklists (e.g. StevenBlack)
+        # 2. Optionally load remote blocklists (e.g. StevenBlack, EasyPrivacy)
         if download_remote:
             for name, config in DEFAULT_SOURCES.items():
                 rules = self.loader.load_cached_or_download(
@@ -63,8 +81,8 @@ class DomainClassifier:
     def remove_custom_blocklist(self, domain: str):
         self.custom_blocklist.pop(domain.lower().strip(), None)
 
-    def classify(self, domain: str) -> DomainClassification:
-        """Classifies a domain name into tracker, ad_network, first_party, or unknown."""
+    def classify(self, domain: str, check_threat_intel: bool = True) -> DomainClassification:
+        """Classifies a domain name into first_party, tracker, ad_network, malicious, or unknown."""
         if not self.is_loaded:
             self.load_rules()
 
@@ -117,11 +135,11 @@ class DomainClassifier:
                     matched_rule=blocked,
                 )
 
-        # 3. Trie lookup for blocklist / first-party seed rules
+        # 3. Layer 1: Suffix Trie lookup for blocklist / first-party seed rules
         match = self.trie.match(domain)
         if match:
             category, source, rule = match
-            is_blocked = category in ("tracker", "ad_network")
+            is_blocked = category in ("tracker", "ad_network", "malicious")
             return DomainClassification(
                 domain=domain,
                 category=category,
@@ -130,7 +148,21 @@ class DomainClassifier:
                 matched_rule=rule,
             )
 
-        # 4. Unknown domain
+        # 4. Layer 2: Check Threat Intelligence (URLhaus / VirusTotal)
+        if check_threat_intel and self.threat_intel:
+            threat_report = self.threat_intel.evaluate_domain(domain)
+            if threat_report.is_malicious:
+                return DomainClassification(
+                    domain=domain,
+                    category="malicious",
+                    is_blocked=True,
+                    source=threat_report.source,
+                    matched_rule=domain,
+                    threat_vendors=threat_report.vendor_count,
+                    threat_details=threat_report.details,
+                )
+
+        # 5. Layer 3: Unknown / Unclassified Domain fallback
         return DomainClassification(
             domain=domain,
             category="unknown",
