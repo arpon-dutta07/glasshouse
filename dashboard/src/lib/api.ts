@@ -143,6 +143,20 @@ export async function deleteCustomRule(domain: string): Promise<boolean> {
   }
 }
 
+export async function renameDevice(mac: string, newName: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/api/devices/${encodeURIComponent(mac)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ device_name: newName }),
+    });
+    return res.ok;
+  } catch (err) {
+    console.error("renameDevice error:", err);
+    return false;
+  }
+}
+
 export function createLiveWebSocket(onMessage: (event: ConnectionEvent) => void, onStatusChange?: (connected: boolean) => void): WebSocket {
   const ws = new WebSocket(`${WS_BASE}/ws/live`);
 

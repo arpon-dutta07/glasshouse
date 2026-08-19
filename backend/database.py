@@ -76,6 +76,37 @@ class Database:
             await db.execute("DELETE FROM devices")
             await db.commit()
 
+    async def re_resolve_all_device_vendors(self, device_tracker):
+        """One-time startup migration: re-resolves vendor names and friendly device names for all stored devices."""
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute("SELECT mac_address, ip_address, device_name, vendor FROM devices")
+            devices = await cursor.fetchall()
+            for dev in devices:
+                mac = dev["mac_address"]
+                current_vendor = dev["vendor"]
+                current_name = dev["device_name"]
+                
+                resolved_vendor = device_tracker.lookup_vendor(mac)
+                resolved_name = device_tracker.suggest_device_name(mac, vendor=resolved_vendor, ip=dev["ip_address"])
+                
+                # Update if different or currently Generic/None
+                if resolved_vendor != current_vendor or resolved_name != current_name:
+                    await db.execute(
+                        "UPDATE devices SET vendor = ?, device_name = ? WHERE mac_address = ?",
+                        (resolved_vendor, resolved_name, mac),
+                    )
+            await db.commit()
+
+    async def update_device_name(self, mac_address: str, device_name: str):
+        """Updates custom friendly device name in the database."""
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "UPDATE devices SET device_name = ? WHERE mac_address = ?",
+                (device_name.strip(), mac_address.lower().strip()),
+            )
+            await db.commit()
+
     async def upsert_device(
         self,
         mac_address: str,

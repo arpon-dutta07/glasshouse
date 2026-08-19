@@ -65,8 +65,13 @@ async def lifespan(app: FastAPI):
         else:
             app_state.classifier.add_custom_blocklist(rule["domain"], category=rule["category"])
 
-    # 4. Initialize DeviceTracker
+    # 4. Initialize DeviceTracker and run vendor re-resolution migration on existing devices
     app_state.device_tracker = DeviceTracker()
+    try:
+        await app_state.database.re_resolve_all_device_vendors(app_state.device_tracker)
+        logger.info("Device vendor records re-resolved successfully.")
+    except Exception as e:
+        logger.warning(f"Could not re-resolve existing device vendors: {e}")
 
     # 5. Initialize Pipeline with WebSocket broadcast hook
     def broadcast_to_ws(event: dict):

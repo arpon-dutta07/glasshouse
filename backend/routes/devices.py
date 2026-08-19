@@ -34,3 +34,14 @@ async def get_device(mac: str, db: Database = Depends(get_db)):
         "score_history": scores,
         "recent_connections": recent_conns,
     }
+
+
+@router.patch("/{mac}")
+async def update_device_name(mac: str, payload: dict, db: Database = Depends(get_db)):
+    """Allows user to customize/rename a device."""
+    new_name = payload.get("device_name", "").strip()
+    if not new_name:
+        raise HTTPException(status_code=400, detail="Device name cannot be empty")
+    await db.update_device_name(mac, new_name)
+    return {"status": "ok", "mac": mac, "device_name": new_name}
+

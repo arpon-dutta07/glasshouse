@@ -29,42 +29,59 @@ export const ScoreGauge: React.FC<ScoreGaugeProps> = ({
   };
 
   const theme = getColor(safeScore);
+  // Proportionally scale font size to circle diameter (e.g. 56px -> 16px, 68px -> 19px, 120px -> 32px)
+  const fontSize = Math.max(13, Math.round(size * 0.29));
 
   return (
-    <div className="flex flex-col items-center justify-center relative select-none">
-      <svg width={size} height={size} className="transform -rotate-90">
-        {/* Background track */}
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke="rgba(255, 255, 255, 0.04)"
-          strokeWidth={strokeWidth}
-          fill="transparent"
-        />
-        {/* Progress track */}
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke={theme.stroke}
-          strokeWidth={strokeWidth}
-          strokeDasharray={circumference}
-          strokeDashoffset={strokeDashoffset}
-          strokeLinecap="round"
-          fill="transparent"
-          className="gauge-glow"
-          style={{ transition: "stroke-dashoffset 0.8s ease-in-out" }}
-        />
-      </svg>
-      {/* Centered Score */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className={`text-xl font-bold tracking-tight ${theme.text}`}>
-          {safeScore}
-        </span>
+    <div className="inline-flex flex-col items-center justify-center select-none">
+      {/* Explicitly sized square container so number is always mathematically centered inside circle */}
+      <div
+        className="relative flex items-center justify-center flex-shrink-0"
+        style={{ width: `${size}px`, height: `${size}px` }}
+      >
+        <svg
+          width={size}
+          height={size}
+          viewBox={`0 0 ${size} ${size}`}
+          className="transform -rotate-90 block"
+        >
+          {/* Background track */}
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            stroke="rgba(255, 255, 255, 0.06)"
+            strokeWidth={strokeWidth}
+            fill="transparent"
+          />
+          {/* Progress track */}
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            stroke={theme.stroke}
+            strokeWidth={strokeWidth}
+            strokeDasharray={circumference}
+            strokeDashoffset={strokeDashoffset}
+            strokeLinecap="round"
+            fill="transparent"
+            style={{ transition: "stroke-dashoffset 0.8s ease-in-out" }}
+          />
+        </svg>
+
+        {/* Absolute centered score label container with flex centering */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <span
+            className={`font-bold font-mono tracking-tight leading-none ${theme.text}`}
+            style={{ fontSize: `${fontSize}px` }}
+          >
+            {safeScore}
+          </span>
+        </div>
       </div>
+
       {showLabel && (
-        <span className={`mt-1.5 text-[10px] font-medium ${theme.text} opacity-70`}>
+        <span className={`mt-1.5 text-[10px] font-medium ${theme.text} opacity-80`}>
           {theme.label}
         </span>
       )}

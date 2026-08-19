@@ -7,6 +7,7 @@ with a curated fallback dictionary for offline/edge cases.
 
 import os
 import re
+import socket
 import subprocess
 import logging
 from pathlib import Path
@@ -81,23 +82,26 @@ def _load_ieee_vendors() -> Dict[str, str]:
     return vendors
 
 
-# Traffic-pattern domain sets for device type guessing
-_APPLE_DOMAINS = {"apple.com", "icloud.com", "apple-dns.net", "mzstatic.com", "apple.news"}
-_ANDROID_DOMAINS = {"googleapis.com", "google.com", "gstatic.com", "android.com", "android.clients.google.com"}
-_WINDOWS_DOMAINS = {"microsoft.com", "windowsupdate.com", "windows.net", "live.com", "msn.com"}
-_SMART_TV_DOMAINS = {"samsungcloudsolution.com", "samsungads.com", "roku.com", "lgtvsdp.com", "lgappstv.com"}
-_IOT_DOMAINS = {"iot.espressif.com", "pool.ntp.org", "devicehub.io"}
-
-# Vendor keywords for device type classification
-_MOBILE_VENDORS = {"apple", "samsung", "xiaomi", "huawei", "oneplus", "oppo", "vivo", "motorola", "nokia", "realme"}
-_LAPTOP_VENDORS = {"apple", "dell", "lenovo", "hp", "asus", "acer", "microsoft", "intel"}
-_TV_VENDORS = {"roku", "sony interactive", "lg electronics", "vizio", "tcl", "hisense"}
-_IOT_VENDORS = {"espressif", "raspberry pi", "tuya", "shenzhen", "sonoff"}
-_ROUTER_VENDORS = {"tp-link", "netgear", "asus", "cisco", "ubiquiti", "linksys", "d-link", "arris"}
+def _get_local_machine_info():
+    """Detects local hostname and outbound IP address."""
+    hostname = socket.gethostname()
+    local_ip = None
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 53))
+        local_ip = s.getsockname()[0]
+        s.close()
+    except Exception:
+        pass
+    return hostname, local_ip
 
 
 def normalize_mac(mac: str) -> str:
     """Normalizes MAC address string to lower-case colon-separated format (aa:bb:cc:dd:ee:ff)."""
+    if not mac:
+        return ""
+    if mac.startswith("ip:"):
+        return mac.lower().strip()
     cleaned = re.sub(r"[^0-9a-fA-F]", "", mac).lower()
     if len(cleaned) == 12:
         return ":".join(cleaned[i:i+2] for i in range(0, 12, 2))
@@ -111,106 +115,94 @@ class DeviceTracker:
         self.oui_db = oui_db if oui_db is not None else _load_ieee_vendors()
         self.ip_to_mac_cache: Dict[str, str] = {}
         self.mac_to_ip_cache: Dict[str, str] = {}
-        self._domain_history: Dict[str, Set[str]] = {}  # mac -> set of observed domains
+        self.hostname_cache: Dict[str, str] = {}
+        self.local_hostname, self.local_ip = _get_local_machine_info()
+        self._domain_history: Dict[str, Set[str]] = {}
 
     def lookup_vendor(self, mac: str) -> Optional[str]:
         """Resolves MAC address OUI prefix to manufacturer name (O(1) dictionary lookup)."""
+        if not mac or mac.startswith("ip:"):
+            return None
+
         cleaned = re.sub(r"[^0-9a-fA-F]", "", mac).upper()
         if len(cleaned) < 6:
             return None
 
-        # Look up 6-character OUI prefix
         oui_prefix = cleaned[:6]
-        return self.oui_db.get(oui_prefix)
+        vendor = self.oui_db.get(oui_prefix)
+        logger.info(f"[OUI Lookup] MAC: {mac} (OUI: {oui_prefix}) -> Vendor: {vendor or 'Unresolved'}")
+        return vendor
 
-    def guess_device_type(self, vendor: Optional[str] = None, mac: Optional[str] = None) -> str:
-        """Guesses device type based on vendor name and observed traffic patterns.
+    def resolve_hostname(self, ip: str) -> Optional[str]:
+        """Tries to resolve device hostname via local reverse DNS."""
+        if not ip:
+            return None
+        if ip in self.hostname_cache:
+            return self.hostname_cache[ip]
 
-        Returns one of: "Phone", "Laptop", "Smart TV", "IoT", "Router", "Streaming", "Tablet", "Device"
-        """
-        v = (vendor or "").lower()
+        # Check if local machine
+        if ip == self.local_ip:
+            self.hostname_cache[ip] = self.local_hostname
+            return self.local_hostname
 
-        # Check observed domains for this MAC
-        domains_seen: Set[str] = set()
-        if mac and mac in self._domain_history:
-            domains_seen = self._domain_history[mac]
+        try:
+            name, _, _ = socket.gethostbyaddr(ip)
+            if name and name != ip:
+                # Remove common local domain suffixes
+                clean_name = name.replace(".lan", "").replace(".local", "").replace(".home", "")
+                self.hostname_cache[ip] = clean_name
+                return clean_name
+        except Exception:
+            pass
 
-        # Traffic-pattern based guessing (secondary signal)
-        apple_score = sum(1 for d in domains_seen if any(d.endswith(ad) for ad in _APPLE_DOMAINS))
-        android_score = sum(1 for d in domains_seen if any(d.endswith(ad) for ad in _ANDROID_DOMAINS))
-        windows_score = sum(1 for d in domains_seen if any(d.endswith(wd) for wd in _WINDOWS_DOMAINS))
-        tv_score = sum(1 for d in domains_seen if any(d.endswith(td) for td in _SMART_TV_DOMAINS))
-
-        # Vendor-based type (primary signal)
-        if any(kw in v for kw in _TV_VENDORS):
-            return "Smart TV"
-        if any(kw in v for kw in _IOT_VENDORS):
-            return "IoT"
-        if any(kw in v for kw in _ROUTER_VENDORS) and "apple" not in v:
-            return "Router"
-
-        # For ambiguous vendors (Apple, Samsung, etc.), use traffic patterns
-        if "apple" in v:
-            if tv_score > 0:
-                return "Apple TV"
-            return "iPhone/Mac"
-        if any(kw in v for kw in {"samsung", "xiaomi", "huawei", "oneplus", "oppo", "vivo", "motorola", "realme"}):
-            return "Phone"
-
-        # Traffic-pattern fallback
-        if apple_score > android_score and apple_score > 0:
-            return "iPhone/Mac"
-        if android_score > apple_score and android_score > 0:
-            return "Android"
-        if windows_score > 0:
-            return "PC"
-        if tv_score > 0:
-            return "Smart TV"
-
-        # Generic vendor-based
-        if any(kw in v for kw in _LAPTOP_VENDORS):
-            return "Laptop"
-
-        return "Device"
+        return None
 
     def record_domain(self, mac: str, domain: str):
-        """Records an observed domain for a MAC address (used for device type guessing)."""
+        """Records an observed domain for a MAC address."""
         mac = mac.lower().strip()
         if mac not in self._domain_history:
             self._domain_history[mac] = set()
-        # Keep only the root domain for pattern matching
-        parts = domain.lower().split(".")
-        if len(parts) >= 2:
-            root = ".".join(parts[-2:])
-            self._domain_history[mac].add(root)
         self._domain_history[mac].add(domain.lower())
 
     def suggest_device_name(self, mac: str, vendor: Optional[str] = None, ip: Optional[str] = None) -> str:
-        """Generates a friendly human-readable name for an identified device."""
+        """Generates a clean, accurate human-readable name for an identified device."""
+        if not mac:
+            return "Unknown Device"
+
+        # 1. If this is the local PC running Glasshouse, identify it accurately
+        if (ip and ip == self.local_ip) or (ip and ip in ("127.0.0.1", "localhost")):
+            return f"This PC ({self.local_hostname})"
+
+        # 2. Try reverse DNS hostname (e.g. Arpan-Laptop, iPhone, Samsung-TV)
+        if ip:
+            hostname = self.resolve_hostname(ip)
+            if hostname and hostname != ip:
+                return hostname
+
+        # 3. Pseudo-MAC fallback
+        if mac.startswith("ip:"):
+            host_ip = mac.replace("ip:", "")
+            return f"Host ({host_ip})"
+
+        # 4. Use OUI Vendor name
         v = vendor or self.lookup_vendor(mac)
-        device_type = self.guess_device_type(vendor=v, mac=mac)
 
-        # Build short vendor prefix
-        if v:
-            # Clean up vendor name for display
-            short = v.split(",")[0].split("/")[0].split("Co.")[0].strip()
-            # Remove redundant suffixes
-            for suffix in [" Corporation", " Technologies", " Corp", " Inc.", " Inc", " Ltd", " Electronics", " Semiconductor"]:
-                short = short.replace(suffix, "").strip()
-        else:
-            short = "Unknown"
-
-        # Get last two octets for uniqueness
+        # Extract last 4 hex characters of MAC (e.g. 39:CD)
         last_octets = mac.split(":")[-2:] if ":" in mac else [mac[-4:-2], mac[-2:]]
-        suffix = ":".join(o.upper() for o in last_octets)
+        suffix = ":".join(o.upper() for o in last_octets) if len(last_octets) == 2 else mac[-4:].upper()
 
-        # Build name: "Apple iPhone/Mac (39:CD)" or "Samsung Phone (39:CD)"
-        if device_type != "Device" and short != "Unknown":
-            return f"{short} {device_type} ({suffix})"
-        elif short != "Unknown":
-            return f"{short} Device ({suffix})"
-        else:
-            return f"Unknown Device ({suffix})"
+        if v:
+            short = v.split(",")[0].split("/")[0].split("Co.")[0].strip()
+            for corp_suffix in [
+                " Corporation", " Technologies", " Corp", " Inc.", " Inc",
+                " Ltd", " Electronics", " Semiconductor", " Technology"
+            ]:
+                short = short.replace(corp_suffix, "").strip()
+
+            if short:
+                return f"{short} Device ({suffix})"
+
+        return f"Unknown Device ({suffix})"
 
     def parse_arp_output(self, text: str) -> Dict[str, str]:
         """Parses stdout of arp -a across Windows, Linux, and macOS."""
@@ -241,23 +233,9 @@ class DeviceTracker:
                     mapping[ip] = mac
         return mapping
 
-    def parse_dnsmasq_leases(self, text: str) -> Dict[str, Dict[str, str]]:
-        """Parses dnsmasq.leases file to extract (ip, mac, hostname)."""
-        leases = {}
-        for line in text.splitlines():
-            parts = line.split()
-            if len(parts) >= 4:
-                raw_mac = parts[1]
-                ip = parts[2]
-                hostname = parts[3] if parts[3] != "*" else None
-                mac = normalize_mac(raw_mac)
-                leases[ip] = {"mac": mac, "hostname": hostname}
-        return leases
-
     def refresh_arp_cache(self) -> Dict[str, str]:
         """Scans local system ARP table and updates cache."""
         mapping = {}
-        # Try /proc/net/arp on Linux
         proc_arp = Path("/proc/net/arp")
         if proc_arp.exists():
             try:
@@ -266,7 +244,6 @@ class DeviceTracker:
             except Exception as e:
                 logger.warning(f"Error reading /proc/net/arp: {e}")
 
-        # Fallback to running arp -a command
         if not mapping:
             try:
                 cmd = ["arp", "-a"]
