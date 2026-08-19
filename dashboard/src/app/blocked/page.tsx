@@ -68,17 +68,20 @@ export default function BlockedDomainsPage() {
       setTimeout(() => setNotification(null), 4000);
       loadData();
     } else {
-      setNotification({ type: "error", message: "Failed to switch blocking mode." });
+      setNotification({
+        type: "error",
+        message: "Failed to switch blocking mode. Ensure backend is running as Administrator.",
+      });
     }
     setActionLoading(false);
   };
 
-  const handleBlockSubmit = async (e: React.FormEvent) => {
+  const handleAddBlock = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!domainInput.trim()) return;
 
     setActionLoading(true);
-    const res = await blockDomain(domainInput.trim(), categoryInput, reasonInput.trim());
+    const res = await blockDomain(domainInput.trim(), categoryInput, reasonInput.trim() || undefined);
     setActionLoading(false);
 
     if (res.success) {
@@ -122,23 +125,23 @@ export default function BlockedDomainsPage() {
         <div className="space-y-1">
           <Link
             href="/"
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 transition-colors mb-2"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-colors mb-2"
           >
             <ArrowLeft className="w-3.5 h-3.5" /> Overview
           </Link>
-          <h1 className="text-xl font-bold text-white tracking-tight flex items-center gap-2.5 font-hud">
-            <Shield className="w-5 h-5 text-red-400" />
+          <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2.5 font-hud">
+            <Shield className="w-5 h-5 text-red-500" />
             BLOCKED DOMAINS & FIREWALL
           </h1>
-          <p className="text-xs text-slate-400 font-sans">
+          <p className="text-xs text-slate-600 dark:text-slate-400 font-sans">
             Local-machine hosts file domain blocking with safety guardrails
           </p>
         </div>
 
         {/* Animated Pill Mode Toggle Control */}
-        <div className="flex items-center gap-3 p-2.5 rounded-2xl radar-panel border border-white/[0.08]">
+        <div className="flex items-center gap-3 p-2.5 rounded-2xl radar-panel">
           <div className="text-right font-sans">
-            <p className="text-[11px] font-bold text-slate-200 font-hud">
+            <p className="text-[11px] font-bold text-slate-900 dark:text-slate-200 font-hud">
               {isTestMode ? "TEST MODE" : "LIVE BLOCK MODE"}
             </p>
             <p className="text-[10px] text-slate-500 font-mono">
@@ -156,7 +159,7 @@ export default function BlockedDomainsPage() {
           >
             <span
               className={`inline-block h-4 w-4 transform rounded-full transition-all duration-300 ${
-                isTestMode ? "translate-x-1.5 bg-amber-400" : "translate-x-6 bg-red-400"
+                isTestMode ? "translate-x-1.5 bg-amber-500" : "translate-x-6 bg-red-500"
               }`}
             />
           </button>
@@ -167,32 +170,29 @@ export default function BlockedDomainsPage() {
       <div
         className={`p-4 rounded-2xl border text-xs flex items-start gap-3 ${
           isTestMode
-            ? "bg-amber-500/10 border-amber-500/20 text-amber-300"
-            : "bg-red-500/10 border-red-500/20 text-red-300"
+            ? "bg-amber-500/10 border-amber-500/20 text-amber-800 dark:text-amber-300"
+            : "bg-cyan-500/10 border-cyan-500/20 text-cyan-800 dark:text-cyan-300"
         }`}
       >
         <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
         <div className="space-y-1 font-sans">
-          <p className="font-semibold">
-            {isTestMode
-              ? "Test Mode Active (Safety First)"
-              : "Live Block Mode Active (Modifying Hosts File)"}
+          <p className="font-bold text-xs font-hud">
+            {isTestMode ? "Simulation Mode Active" : "Direct Hosts File Modification Active"}
           </p>
-          <p className="text-slate-300 text-[11px] leading-relaxed">
+          <p className="text-[11.5px] leading-relaxed">
             {isTestMode
-              ? "Blocked domains are classified as blocked in the live radar feed, but your operating system hosts file is NOT modified. Switch to Live Block Mode if you want OS-level DNS blocking on this PC."
-              : `Active rules are written directly to ${status?.hosts_path || "system hosts file"}. Blocked domains resolve to 0.0.0.0, terminating outbound TLS ClientHello attempts before they leave your machine.`}
+              ? "Blocked domains will be flagged and simulated in your dashboard feed without modifying your operating system's hosts file. Safe for testing and demonstration."
+              : `Blocked domains are actively routed to 0.0.0.0 in your OS hosts file (${status?.hosts_path || "hosts"}). Any matching outbound traffic will be blocked at the OS resolver level.`}
           </p>
         </div>
       </div>
 
-      {/* Notification */}
       {notification && (
         <div
-          className={`py-2 px-4 rounded-xl text-xs text-center border font-mono animate-count ${
+          className={`py-2 px-4 rounded-xl text-xs text-center font-mono animate-count border ${
             notification.type === "success"
-              ? "bg-cyan-500/10 text-cyan-300 border-cyan-500/20"
-              : "bg-red-500/10 text-red-300 border-red-500/20"
+              ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300"
+              : "bg-red-500/10 border-red-500/30 text-red-700 dark:text-red-300"
           }`}
         >
           {notification.message}
@@ -200,62 +200,61 @@ export default function BlockedDomainsPage() {
       )}
 
       {/* Add Block Rule Form */}
-      <div className="rounded-2xl radar-panel p-5">
-        <h2 className="text-xs font-bold text-slate-300 uppercase tracking-widest mb-4 flex items-center gap-2">
-          <Ban className="w-3.5 h-3.5 text-red-400" />
-          MANUALLY BLOCK DOMAIN
+      <div className="rounded-2xl radar-panel p-5 space-y-4">
+        <h2 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-widest flex items-center gap-2 font-hud">
+          <Ban className="w-3.5 h-3.5 text-red-500" />
+          MANUALLY BLOCK A DOMAIN
         </h2>
 
-        <form onSubmit={handleBlockSubmit} className="space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-            <div className="sm:col-span-6">
-              <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">
-                Domain Name
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. telemetry.example.com"
-                value={domainInput}
-                onChange={(e) => setDomainInput(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-[#090d16]/80 border border-white/[0.08] text-xs text-slate-100 focus:outline-none focus:border-cyan-500/50 font-mono placeholder:text-slate-600"
-                required
-              />
-            </div>
-
-            <div className="sm:col-span-3">
-              <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">
-                Category
-              </label>
-              <select
-                value={categoryInput}
-                onChange={(e) => setCategoryInput(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-[#090d16]/80 border border-white/[0.08] text-xs text-slate-100 focus:outline-none focus:border-cyan-500/50 font-mono"
-              >
-                <option value="tracker">Tracker</option>
-                <option value="ad_network">Ad Network</option>
-                <option value="malicious">Malicious</option>
-              </select>
-            </div>
-
-            <div className="sm:col-span-3">
-              <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">
-                Reason / Note
-              </label>
-              <input
-                type="text"
-                placeholder="Optional description"
-                value={reasonInput}
-                onChange={(e) => setReasonInput(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-[#090d16]/80 border border-white/[0.08] text-xs text-slate-100 focus:outline-none focus:border-cyan-500/50 font-mono placeholder:text-slate-600"
-              />
-            </div>
+        <form onSubmit={handleAddBlock} className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+          <div className="sm:col-span-5">
+            <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1 font-sans">
+              Domain Name
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. tracker.analytics.com"
+              value={domainInput}
+              onChange={(e) => setDomainInput(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl bg-white dark:bg-[#090d16]/80 border border-slate-200 dark:border-white/[0.08] text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-cyan-500 placeholder:text-slate-400 dark:placeholder:text-slate-600 shadow-sm"
+              required
+            />
           </div>
 
-          <div className="flex justify-end pt-1">
+          <div className="sm:col-span-3">
+            <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1 font-sans">
+              Category
+            </label>
+            <select
+              value={categoryInput}
+              onChange={(e) => setCategoryInput(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl bg-white dark:bg-[#090d16]/80 border border-slate-200 dark:border-white/[0.08] text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-cyan-500 shadow-sm"
+            >
+              <option value="tracker">Tracker</option>
+              <option value="ad_network">Ad Network</option>
+              <option value="malicious">Malicious</option>
+              <option value="custom">Custom</option>
+            </select>
+          </div>
+
+          <div className="sm:col-span-4">
+            <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1 font-sans">
+              Reason / Note
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. Telemetry beacon"
+              value={reasonInput}
+              onChange={(e) => setReasonInput(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl bg-white dark:bg-[#090d16]/80 border border-slate-200 dark:border-white/[0.08] text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-cyan-500 placeholder:text-slate-400 dark:placeholder:text-slate-600 shadow-sm"
+            />
+          </div>
+
+          <div className="sm:col-span-12 flex justify-end pt-1">
             <button
               type="submit"
               disabled={actionLoading || !domainInput.trim()}
-              className="px-4 py-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/40 text-xs font-bold font-mono transition-all disabled:opacity-50 flex items-center gap-1.5 shadow-[0_0_10px_rgba(248,113,113,0.15)]"
+              className="px-4 py-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-700 dark:text-red-300 border border-red-500/40 text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-1.5 shadow-[0_0_10px_rgba(248,113,113,0.2)]"
             >
               <Ban className="w-3.5 h-3.5" />
               <span>BLOCK DOMAIN</span>
@@ -264,21 +263,21 @@ export default function BlockedDomainsPage() {
         </form>
       </div>
 
-      {/* Blocked Domains Table */}
+      {/* Blocked Domains List */}
       <div className="space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <h2 className="text-xs font-bold text-slate-300 uppercase tracking-widest">
-            ACTIVE BLOCKED DOMAINS ({blockedDomains.length})
+        <div className="flex items-center justify-between">
+          <h2 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-widest font-hud">
+            CURRENTLY BLOCKED DOMAINS ({blockedDomains.length})
           </h2>
 
-          <div className="relative w-full sm:w-64">
-            <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+          <div className="relative w-64">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               placeholder="Search blocked domains..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-[#090d16]/80 border border-white/[0.08] text-xs text-slate-100 focus:outline-none focus:border-cyan-500/50 font-mono placeholder:text-slate-500"
+              className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-white dark:bg-[#090d16]/80 border border-slate-200 dark:border-white/[0.08] text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-cyan-500 placeholder:text-slate-400 dark:placeholder:text-slate-600 shadow-sm"
             />
           </div>
         </div>
@@ -286,53 +285,47 @@ export default function BlockedDomainsPage() {
         <div className="rounded-2xl radar-panel overflow-hidden">
           {loading ? (
             <div className="py-16 text-center text-slate-500 text-xs">
-              Loading blocked domains...
+              Loading blocked domains list...
             </div>
           ) : filtered.length === 0 ? (
-            <div className="py-16 text-center text-slate-500 text-xs space-y-1 font-sans">
-              <p className="font-semibold text-slate-400">No blocked domains</p>
-              <p className="text-[11px] text-slate-600 font-mono">
-                Click [BLOCK] in the live radar feed or add a domain above.
-              </p>
+            <div className="py-16 text-center text-slate-500 text-xs space-y-1">
+              <ShieldCheck className="w-8 h-8 text-emerald-500/40 mx-auto mb-2" />
+              <p className="font-bold text-slate-700 dark:text-slate-300 font-hud">No blocked domains</p>
+              <p className="text-[11px] text-slate-400">Use the form above or block trackers directly from the live feed</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
-                  <tr className="border-b border-white/[0.06] text-[10px] uppercase font-bold text-slate-400">
+                  <tr className="border-b border-slate-200 dark:border-white/[0.06] text-[10px] uppercase font-bold text-slate-500">
                     <th className="py-3 px-4">DOMAIN</th>
                     <th className="py-3 px-4">CATEGORY</th>
-                    <th className="py-3 px-4">BLOCKED AT</th>
-                    <th className="py-3 px-4">REASON / NOTE</th>
+                    <th className="py-3 px-4">REASON</th>
+                    <th className="py-3 px-4">DATE BLOCKED</th>
                     <th className="py-3 px-4 text-right">ACTION</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/[0.03] text-[11px]">
+                <tbody className="divide-y divide-slate-100 dark:divide-white/[0.03] text-[11px]">
                   {filtered.map((b) => (
-                    <tr key={b.domain} className="hover:bg-white/[0.02] transition-colors">
-                      <td className="py-2.5 px-4 font-bold text-slate-100 flex items-center gap-1.5">
-                        <Lock className="w-3 h-3 text-red-400 flex-shrink-0" />
-                        <span>{b.domain}</span>
-                      </td>
+                    <tr key={b.domain} className="hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
+                      <td className="py-2.5 px-4 font-bold text-slate-900 dark:text-slate-100">{b.domain}</td>
                       <td className="py-2.5 px-4">
-                        <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-red-500/10 text-red-400 border border-red-500/20 uppercase">
+                        <span className="px-2 py-0.5 rounded text-[9.5px] font-bold uppercase bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20">
                           {b.category}
                         </span>
                       </td>
-                      <td className="py-2.5 px-4 text-slate-400">
-                        {new Date(b.blocked_at).toLocaleDateString()}{" "}
-                        {new Date(b.blocked_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                      </td>
-                      <td className="py-2.5 px-4 text-slate-400">
-                        {b.reason || "—"}
+                      <td className="py-2.5 px-4 text-slate-600 dark:text-slate-400 truncate max-w-xs">{b.reason || "—"}</td>
+                      <td className="py-2.5 px-4 text-slate-500">
+                        {new Date(b.blocked_at).toLocaleDateString()}
                       </td>
                       <td className="py-2.5 px-4 text-right">
                         <button
                           onClick={() => handleUnblock(b.domain)}
                           disabled={actionLoading}
-                          className="px-2.5 py-1 rounded-lg bg-white/[0.03] hover:bg-emerald-500/15 hover:text-emerald-300 text-slate-400 border border-white/[0.06] text-[10px] font-bold transition-all disabled:opacity-50"
+                          className="px-2 py-0.5 rounded bg-slate-100 dark:bg-white/[0.03] hover:bg-emerald-500/15 text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 border border-slate-200 dark:border-white/[0.06] transition-colors text-[10px] font-bold"
+                          title="Unblock and restore domain access"
                         >
-                          UNBLOCK
+                          [UNBLOCK]
                         </button>
                       </td>
                     </tr>

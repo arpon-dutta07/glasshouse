@@ -16,6 +16,14 @@ export interface Device {
   current_tracker_count?: number;
   current_total_count?: number;
   score_computed_at?: string;
+  is_online?: boolean;
+}
+
+export interface DeviceSession {
+  id?: number;
+  device_mac: string;
+  connected_at: string;
+  disconnected_at?: string | null;
 }
 
 export interface ConnectionEvent {
@@ -110,6 +118,7 @@ export interface DeviceDetailResponse {
     total_count: number;
   }>;
   recent_connections: ConnectionEvent[];
+  sessions?: DeviceSession[];
 }
 
 export async function fetchDevice(mac: string): Promise<Device | null> {
@@ -132,6 +141,18 @@ export async function fetchDeviceDetails(mac: string): Promise<DeviceDetailRespo
   } catch (err) {
     console.error("fetchDeviceDetails error:", err);
     return null;
+  }
+}
+
+export async function fetchDeviceSessions(mac: string): Promise<DeviceSession[]> {
+  try {
+    const res = await fetch(`${API_BASE}/api/devices/${encodeURIComponent(mac)}/sessions`, { cache: "no-store" });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.sessions || [];
+  } catch (err) {
+    console.error("fetchDeviceSessions error:", err);
+    return [];
   }
 }
 
