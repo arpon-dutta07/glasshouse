@@ -16,13 +16,13 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <body className="antialiased min-h-screen flex flex-col selection:bg-cyan-500/30 selection:text-cyan-200">
         <Navbar />
-        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10">
           {children}
         </main>
-        <footer className="border-t border-slate-900 bg-slate-950/60 py-6 text-center text-xs text-slate-400">
-          <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <p>Glasshouse Privacy Observability System • Passive SNI Inspection Only</p>
-            <p className="font-mono text-[11px] text-slate-400">No Decryption • Zero Payload Interception</p>
+        <footer className="py-8 text-center text-[11px] text-slate-600">
+          <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+            <p>Glasshouse Privacy Observability</p>
+            <p className="font-mono text-slate-700">SNI Inspection Only • No Decryption</p>
           </div>
         </footer>
       </body>

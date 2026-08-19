@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { Laptop, Smartphone, Tv, Cpu, HelpCircle, ArrowUpRight, Wifi } from "lucide-react";
+import { Laptop, Smartphone, Tv, Cpu, Wifi, Monitor, Router, Tablet, ArrowRight } from "lucide-react";
 import { Device } from "@/lib/api";
 import { ScoreGauge } from "./ScoreGauge";
 
@@ -13,10 +13,22 @@ interface DeviceCardProps {
 export const DeviceCard: React.FC<DeviceCardProps> = ({ device }) => {
   const getDeviceIcon = (vendor?: string, name?: string) => {
     const text = `${vendor || ""} ${name || ""}`.toLowerCase();
+    // Smart TV / Streaming
+    if (text.includes("tv") || text.includes("roku") || text.includes("sony") || text.includes("lg electronics") || text.includes("vizio") || text.includes("hisense")) return Tv;
+    // Mobile phones
+    if (text.includes("phone") || text.includes("iphone") || text.includes("android") || text.includes("samsung") && !text.includes("tv")) return Smartphone;
+    if (text.includes("xiaomi") || text.includes("huawei") || text.includes("oneplus") || text.includes("oppo") || text.includes("vivo") || text.includes("realme") || text.includes("motorola")) return Smartphone;
+    // Tablets
+    if (text.includes("ipad") || text.includes("tablet")) return Tablet;
+    // Laptops / Computers
     if (text.includes("apple") || text.includes("mac") || text.includes("laptop")) return Laptop;
-    if (text.includes("phone") || text.includes("samsung") || text.includes("xiaomi")) return Smartphone;
-    if (text.includes("tv") || text.includes("roku") || text.includes("sony") || text.includes("lg")) return Tv;
-    if (text.includes("espressif") || text.includes("iot") || text.includes("raspberry")) return Cpu;
+    if (text.includes("dell") || text.includes("lenovo") || text.includes("hp ") || text.includes("asus") || text.includes("acer") || text.includes("intel") || text.includes("microsoft") || text.includes("pc")) return Monitor;
+    // IoT
+    if (text.includes("espressif") || text.includes("iot") || text.includes("raspberry") || text.includes("tuya") || text.includes("sonoff")) return Cpu;
+    // Router
+    if (text.includes("tp-link") || text.includes("netgear") || text.includes("cisco") || text.includes("ubiquiti") || text.includes("linksys") || text.includes("router")) return Router;
+    // Realtek is typically a Wi-Fi chipset
+    if (text.includes("realtek") || text.includes("liteon") || text.includes("qualcomm")) return Wifi;
     return Wifi;
   };
 
@@ -29,54 +41,54 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({ device }) => {
   return (
     <Link
       href={`/devices/${encodeURIComponent(device.mac_address)}`}
-      className="glass-card glass-card-hover rounded-2xl p-5 block group relative overflow-hidden"
+      className="group block rounded-xl p-4 bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.05] hover:border-white/[0.08] transition-all duration-200"
     >
-      {/* Decorative gradient glow top bar */}
-      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-cyan-500/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-3">
         {/* Left info */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1.5">
-            <div className="w-8 h-8 rounded-lg bg-slate-800/80 border border-slate-700/60 flex items-center justify-center text-cyan-400 group-hover:text-cyan-300 transition-colors">
+          <div className="flex items-center gap-2.5 mb-2">
+            <div className="w-8 h-8 rounded-lg bg-white/[0.04] flex items-center justify-center text-slate-400 group-hover:text-cyan-400 transition-colors">
               <Icon className="w-4 h-4" />
             </div>
-            <div>
-              <h3 className="font-semibold text-slate-100 text-sm truncate group-hover:text-cyan-300 transition-colors">
+            <div className="min-w-0">
+              <h3 className="font-medium text-[13px] text-slate-200 truncate group-hover:text-white transition-colors leading-tight">
                 {device.device_name || "Network Device"}
               </h3>
-              <p className="text-[11px] text-slate-400 truncate">{device.vendor || "Unknown Vendor"}</p>
+              <p className="text-[11px] text-slate-500 truncate">{device.vendor || "Unknown Vendor"}</p>
             </div>
           </div>
 
-          <div className="mt-3 space-y-1 text-xs font-mono">
-            <div className="flex items-center justify-between text-slate-400 bg-slate-950/40 px-2 py-1 rounded">
-              <span className="text-[10px] uppercase text-slate-400">IP:</span>
-              <span className="text-slate-200">{device.ip_address || "—"}</span>
+          <div className="space-y-1 text-[11px] font-mono text-slate-500 mt-3">
+            <div className="flex justify-between">
+              <span>IP</span>
+              <span className="text-slate-400">{device.ip_address || "—"}</span>
             </div>
-            <div className="flex items-center justify-between text-slate-400 bg-slate-950/40 px-2 py-1 rounded">
-              <span className="text-[10px] uppercase text-slate-400">MAC:</span>
-              <span className="text-slate-300">{device.mac_address}</span>
+            <div className="flex justify-between">
+              <span>MAC</span>
+              <span className="text-slate-400">{device.mac_address}</span>
             </div>
           </div>
 
           <div className="mt-3 flex items-center gap-2 text-[11px]">
-            <span className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">
-              {totalCount} requests
+            <span className="text-slate-500">
+              {totalCount} conn{totalCount !== 1 ? "s" : ""}
             </span>
             {trackerCount > 0 && (
-              <span className="px-2 py-0.5 rounded-full bg-rose-950/60 border border-rose-800/50 text-rose-300 font-medium">
-                {trackerPercent}% tracking
-              </span>
+              <>
+                <span className="text-slate-700">·</span>
+                <span className="text-red-400/80">
+                  {trackerPercent}% tracking
+                </span>
+              </>
             )}
           </div>
         </div>
 
         {/* Right Gauge */}
-        <div className="flex flex-col items-center">
-          <ScoreGauge score={score} size={84} strokeWidth={7} showLabel={false} />
-          <span className="text-[10px] font-mono mt-1 text-slate-400 flex items-center gap-0.5 group-hover:text-cyan-400 transition-colors">
-            View Details <ArrowUpRight className="w-2.5 h-2.5" />
+        <div className="flex flex-col items-center pt-1">
+          <ScoreGauge score={score} size={68} strokeWidth={5} showLabel={false} />
+          <span className="text-[10px] mt-1.5 text-slate-600 flex items-center gap-0.5 group-hover:text-cyan-500 transition-colors">
+            Details <ArrowRight className="w-2.5 h-2.5" />
           </span>
         </div>
       </div>
