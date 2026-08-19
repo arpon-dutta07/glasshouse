@@ -25,12 +25,14 @@ export interface ConnectionEvent {
   dst_ip?: string;
   destination_ip?: string;
   sni_domain: string;
-  classification: "tracker" | "ad_network" | "first_party" | "unknown";
+  classification: "tracker" | "ad_network" | "malicious" | "first_party" | "unknown";
   is_blocked?: boolean;
   source?: string;
   timestamp: string;
   device_name?: string;
   vendor?: string;
+  threat_vendors?: number;
+  threat_details?: string;
 }
 
 export interface NetworkStats {
@@ -55,23 +57,74 @@ export interface CustomRule {
   created_at: string;
 }
 
+export interface BlockedDomain {
+  domain: string;
+  blocked_at: string;
+  category: string;
+  reason?: string;
+  mode: "test" | "live";
+  is_active: number;
+}
+
+export interface BlockingStatus {
+  test_mode: boolean;
+  hosts_path: string;
+  can_write_hosts: boolean;
+  active_blocks_count: number;
+}
+
+export interface DomainEnrichment {
+  domain: string;
+  ip_address?: string;
+  created_year?: number;
+  age_days?: number;
+  cert_org?: string;
+  hosting_provider?: string;
+  summary_label: string;
+  is_newly_registered?: boolean;
+  threat_vendors?: number;
+  threat_source?: string;
+  threat_details?: string;
+}
+
 export async function fetchDevices(): Promise<Device[]> {
   try {
     const res = await fetch(`${API_BASE}/api/devices`, { cache: "no-store" });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) return [];
     const data = await res.json();
-    return data.devices || [];
+    if (Array.isArray(data)) return data;
+    if (data && Array.isArray(data.devices)) return data.devices;
+    return [];
   } catch (err) {
     console.error("fetchDevices error:", err);
     return [];
   }
 }
 
-export async function fetchDeviceDetails(mac: string): Promise<{
+export interface DeviceDetailResponse {
   device: Device;
-  score_history: Array<{ computed_at: string; score: number; tracker_count: number; total_count: number }>;
+  score_history: Array<{
+    computed_at: string;
+    score: number;
+    tracker_count: number;
+    total_count: number;
+  }>;
   recent_connections: ConnectionEvent[];
-} | null> {
+}
+
+export async function fetchDevice(mac: string): Promise<Device | null> {
+  try {
+    const res = await fetch(`${API_BASE}/api/devices/${encodeURIComponent(mac)}`, { cache: "no-store" });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.device || data;
+  } catch (err) {
+    console.error("fetchDevice error:", err);
+    return null;
+  }
+}
+
+export async function fetchDeviceDetails(mac: string): Promise<DeviceDetailResponse | null> {
   try {
     const res = await fetch(`${API_BASE}/api/devices/${encodeURIComponent(mac)}`, { cache: "no-store" });
     if (!res.ok) return null;
@@ -82,16 +135,23 @@ export async function fetchDeviceDetails(mac: string): Promise<{
   }
 }
 
-export async function fetchRecentConnections(limit = 50, classification?: string): Promise<ConnectionEvent[]> {
+export async function fetchConnections(params?: {
+  limit?: number;
+  device_mac?: string;
+  classification?: string;
+}): Promise<ConnectionEvent[]> {
   try {
-    let url = `${API_BASE}/api/connections?limit=${limit}`;
-    if (classification) url += `&classification=${classification}`;
-    const res = await fetch(url, { cache: "no-store" });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const url = new URL(`${API_BASE}/api/connections`);
+    if (params?.limit) url.searchParams.set("limit", params.limit.toString());
+    if (params?.device_mac) url.searchParams.set("device_mac", params.device_mac);
+    if (params?.classification) url.searchParams.set("classification", params.classification);
+
+    const res = await fetch(url.toString(), { cache: "no-store" });
+    if (!res.ok) return [];
     const data = await res.json();
     return data.connections || [];
   } catch (err) {
-    console.error("fetchRecentConnections error:", err);
+    console.error("fetchConnections error:", err);
     return [];
   }
 }
@@ -107,10 +167,24 @@ export async function fetchStats(): Promise<NetworkStats | null> {
   }
 }
 
+export async function fetchDeviceHistory(mac: string, limit: number = 24): Promise<any[]> {
+  try {
+    const res = await fetch(`${API_BASE}/api/devices/${encodeURIComponent(mac)}/history?limit=${limit}`, {
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.history || [];
+  } catch (err) {
+    console.error("fetchDeviceHistory error:", err);
+    return [];
+  }
+}
+
 export async function fetchCustomRules(): Promise<CustomRule[]> {
   try {
     const res = await fetch(`${API_BASE}/api/custom-rules`, { cache: "no-store" });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) return [];
     const data = await res.json();
     return data.rules || [];
   } catch (err) {
@@ -119,7 +193,7 @@ export async function fetchCustomRules(): Promise<CustomRule[]> {
   }
 }
 
-export async function addCustomRule(domain: string, action: "allow" | "block", category = "tracker"): Promise<boolean> {
+export async function addCustomRule(domain: string, action: "allow" | "block", category: string = "tracker"): Promise<boolean> {
   try {
     const res = await fetch(`${API_BASE}/api/custom-rules`, {
       method: "POST",
@@ -172,7 +246,100 @@ export async function scanNetworkDevices(): Promise<{ discovered: any[]; devices
   }
 }
 
-export function createLiveWebSocket(onMessage: (event: ConnectionEvent) => void, onStatusChange?: (connected: boolean) => void): WebSocket {
+// --- Blocking & Enrichment API Client Methods ---
+
+export async function fetchBlockingStatus(): Promise<BlockingStatus | null> {
+  try {
+    const res = await fetch(`${API_BASE}/api/blocking/status`, { cache: "no-store" });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    console.error("fetchBlockingStatus error:", err);
+    return null;
+  }
+}
+
+export async function toggleBlockingMode(test_mode: boolean): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/api/blocking/mode`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ test_mode }),
+    });
+    return res.ok;
+  } catch (err) {
+    console.error("toggleBlockingMode error:", err);
+    return false;
+  }
+}
+
+export async function fetchBlockedDomains(): Promise<BlockedDomain[]> {
+  try {
+    const res = await fetch(`${API_BASE}/api/blocking/domains`, { cache: "no-store" });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.domains || [];
+  } catch (err) {
+    console.error("fetchBlockedDomains error:", err);
+    return [];
+  }
+}
+
+export async function blockDomain(
+  domain: string,
+  category: string = "tracker",
+  reason: string = ""
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const res = await fetch(`${API_BASE}/api/blocking/block`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ domain, category, reason }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      return { success: false, message: data.detail || "Failed to block domain." };
+    }
+    return { success: true, message: data.message || "Domain blocked successfully." };
+  } catch (err: any) {
+    return { success: false, message: err.message || "Network error while blocking domain." };
+  }
+}
+
+export async function unblockDomain(domain: string): Promise<{ success: boolean; message: string }> {
+  try {
+    const res = await fetch(`${API_BASE}/api/blocking/unblock`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ domain }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      return { success: false, message: data.detail || "Failed to unblock domain." };
+    }
+    return { success: true, message: data.message || "Domain unblocked successfully." };
+  } catch (err: any) {
+    return { success: false, message: err.message || "Network error while unblocking domain." };
+  }
+}
+
+export async function fetchDomainEnrichment(domain: string): Promise<DomainEnrichment | null> {
+  try {
+    const res = await fetch(`${API_BASE}/api/blocking/enrichment/${encodeURIComponent(domain)}`, {
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    console.error("fetchDomainEnrichment error:", err);
+    return null;
+  }
+}
+
+export function createLiveWebSocket(
+  onMessage: (event: ConnectionEvent) => void,
+  onStatusChange?: (connected: boolean) => void
+): WebSocket {
   const ws = new WebSocket(`${WS_BASE}/ws/live`);
 
   ws.onopen = () => {

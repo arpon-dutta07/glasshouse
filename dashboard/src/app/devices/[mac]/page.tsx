@@ -328,9 +328,12 @@ export default function DeviceDetailPage() {
               </thead>
               <tbody className="divide-y divide-white/[0.03] font-mono text-[11px]">
                 {recent_connections.map((conn, idx) => {
+                  const isMalicious = conn.classification === "malicious";
                   const isTracker =
                     conn.classification === "tracker" || conn.classification === "ad_network";
-                  const dotColor = isTracker
+                  const dotColor = isMalicious
+                    ? "bg-rose-500 ring-1 ring-rose-400 shadow-[0_0_8px_rgba(244,63,94,0.8)]"
+                    : isTracker
                     ? "bg-red-400"
                     : conn.classification === "first_party"
                     ? "bg-emerald-400"

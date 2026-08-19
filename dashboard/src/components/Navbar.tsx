@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, Sliders } from "lucide-react";
+import { Activity, Sliders, Shield } from "lucide-react";
 import { createLiveWebSocket } from "@/lib/api";
 
 export const Navbar: React.FC = () => {
@@ -28,6 +28,7 @@ export const Navbar: React.FC = () => {
 
   const navLinks = [
     { href: "/", label: "Overview", icon: Activity },
+    { href: "/blocked", label: "Blocked", icon: Shield },
     { href: "/rules", label: "Rules", icon: Sliders },
   ];
 

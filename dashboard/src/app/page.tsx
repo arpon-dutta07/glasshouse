@@ -19,7 +19,7 @@ export default function OverviewPage() {
   const loadData = async () => {
     setLoading(true);
     const [devs, s] = await Promise.all([fetchDevices(), fetchStats()]);
-    setDevices(devs);
+    setDevices(Array.isArray(devs) ? devs : []);
     setStats(s);
     setLoading(false);
   };
@@ -28,7 +28,7 @@ export default function OverviewPage() {
     setScanning(true);
     setScanMessage("Scanning Wi-Fi subnet for connected devices...");
     const res = await scanNetworkDevices();
-    if (res && res.devices) {
+    if (res && res.devices && Array.isArray(res.devices)) {
       setDevices(res.devices);
       setScanMessage(`Discovered ${res.devices.length} active device${res.devices.length !== 1 ? "s" : ""} on Wi-Fi!`);
     } else {
@@ -45,12 +45,13 @@ export default function OverviewPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const filteredDevices = devices.filter((d) => {
+  const deviceList = Array.isArray(devices) ? devices : [];
+  const filteredDevices = deviceList.filter((d) => {
     const query = search.toLowerCase();
     return (
       (d.device_name && d.device_name.toLowerCase().includes(query)) ||
       (d.vendor && d.vendor.toLowerCase().includes(query)) ||
-      d.mac_address.toLowerCase().includes(query) ||
+      (d.mac_address && d.mac_address.toLowerCase().includes(query)) ||
       (d.ip_address && d.ip_address.includes(query))
     );
   });

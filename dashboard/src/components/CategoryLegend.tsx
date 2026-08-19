@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { HelpCircle, X } from "lucide-react";
+import { HelpCircle, X, ShieldAlert } from "lucide-react";
 
 export const CategoryLegend: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -41,10 +41,16 @@ export const CategoryLegend: React.FC = () => {
         "This company shows you targeted ads based on your activity, often combined with data from many other apps you use.",
     },
     {
-      label: "Unknown",
+      label: "Flagged — Malicious",
+      dot: "bg-rose-600 shadow-[0_0_8px_rgba(225,29,72,0.8)] ring-1 ring-rose-500",
+      description:
+        "Multiple independent security services have identified this domain as harmful (malware distribution, phishing, C2 commands, etc.). Unlike trackers, this is a genuine risk — blocking or investigating further is strongly recommended.",
+    },
+    {
+      label: "Unclassified (Fallback)",
       dot: "bg-slate-500",
       description:
-        "We haven't classified this domain yet. Could be first-party, could be a tracker — not enough information to say either way.",
+        "We haven't matched this domain against blocklists or threat databases. Glasshouse inspects secondary signals (WHOIS age, TLS cert organization, and cloud hosting provider) to offer best-effort context.",
     },
   ];
 
@@ -68,13 +74,12 @@ export const CategoryLegend: React.FC = () => {
           {/* Header */}
           <div className="flex items-start justify-between gap-2 pb-2.5 border-b border-white/[0.06]">
             <div>
-              <h4 className="text-xs font-semibold text-white tracking-tight">
+              <h4 className="text-xs font-semibold text-white tracking-tight flex items-center gap-1.5">
+                <ShieldAlert className="w-3.5 h-3.5 text-cyan-400" />
                 Traffic Classification Guide
               </h4>
               <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
-                Trackers usually aren't dangerous by themselves — but they quietly build a picture
-                of your habits across apps. This dashboard just makes that visible, so you can decide
-                what's okay and what's not.
+                Glasshouse organizes network traffic across 5 distinct categories using multi-layer blocklists, threat intel (URLhaus, VirusTotal), and fallback enrichment.
               </p>
             </div>
             <button
