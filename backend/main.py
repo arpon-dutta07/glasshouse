@@ -1,6 +1,7 @@
 """Glasshouse Backend API Application."""
 
 import asyncio
+from datetime import datetime, timezone
 from contextlib import asynccontextmanager
 import logging
 import threading
@@ -85,59 +86,25 @@ async def lifespan(app: FastAPI):
     for b in blocked_domains:
         app_state.classifier.add_custom_blocklist(b["domain"], category=b.get("category", "tracker"))
 
-    # 6. Initialize DeviceTracker and run vendor re-resolution migration on existing devices
+    # 6. Initialize DeviceTracker and register local host device
     app_state.device_tracker = DeviceTracker()
     try:
-        await app_state.database.re_resolve_all_device_vendors(app_state.device_tracker)
-        logger.info("Device vendor records re-resolved successfully.")
+        now = datetime.now(timezone.utc)
+        if app_state.device_tracker.local_ip:
+            local_mac = app_state.device_tracker.local_mac or app_state.device_tracker.ip_to_mac_cache.get(app_state.device_tracker.local_ip) or "00:00:00:00:00:00"
+            local_vendor = app_state.device_tracker.lookup_vendor(local_mac) if local_mac != "00:00:00:00:00:00" else None
+            local_name = app_state.device_tracker.suggest_device_name(local_mac, vendor=local_vendor, ip=app_state.device_tracker.local_ip)
+            await app_state.database.upsert_device(
+                mac_address=local_mac,
+                ip_address=app_state.device_tracker.local_ip,
+                device_name=local_name,
+                vendor=local_vendor,
+                timestamp=now,
+            )
+        await app_state.database.purge_pseudo_devices()
+        logger.info(f"Local host device registered: {app_state.device_tracker.local_hostname} ({app_state.device_tracker.local_ip})")
     except Exception as e:
-        logger.warning(f"Could not re-resolve existing device vendors: {e}")
-
-    # 6b. Continuous runtime Wi-Fi device discovery & live presence monitor
-    async def periodic_network_device_monitor():
-        while True:
-            try:
-                mapping = await asyncio.to_thread(app_state.device_tracker.scan_local_subnet)
-                now = datetime.now(timezone.utc)
-                from backend.device_tracker import infer_vendor_from_name
-
-                for ip, mac in mapping.items():
-                    if not mac or mac == "00:00:00:00:00:00":
-                        continue
-                    vendor = app_state.device_tracker.lookup_vendor(mac)
-                    name = app_state.device_tracker.suggest_device_name(mac, vendor=vendor, ip=ip)
-                    if not vendor:
-                        vendor = infer_vendor_from_name(name)
-                    await app_state.database.upsert_device(
-                        mac_address=mac,
-                        ip_address=ip,
-                        device_name=name,
-                        vendor=vendor,
-                        timestamp=now,
-                    )
-
-                if app_state.device_tracker.local_ip:
-                    local_mac = app_state.device_tracker.local_mac or app_state.device_tracker.ip_to_mac_cache.get(app_state.device_tracker.local_ip) or f"ip:{app_state.device_tracker.local_ip}"
-                    local_vendor = app_state.device_tracker.lookup_vendor(local_mac) if not local_mac.startswith("ip:") else None
-                    local_name = app_state.device_tracker.suggest_device_name(local_mac, vendor=local_vendor, ip=app_state.device_tracker.local_ip)
-                    await app_state.database.upsert_device(
-                        mac_address=local_mac,
-                        ip_address=app_state.device_tracker.local_ip,
-                        device_name=local_name,
-                        vendor=local_vendor,
-                        timestamp=now,
-                    )
-
-                # Sync connection & disconnection session records
-                active_macs = app_state.device_tracker.get_active_macs()
-                await app_state.database.sync_device_sessions(active_macs, now)
-                await app_state.database.purge_pseudo_devices()
-            except Exception as e:
-                logger.debug(f"Error during network monitor loop: {e}")
-
-            await asyncio.sleep(10)
-
-    asyncio.create_task(periodic_network_device_monitor())
+        logger.warning(f"Could not register local device: {e}")
 
     # 7. Initialize Pipeline with WebSocket broadcast hook
     def broadcast_to_ws(event: dict):

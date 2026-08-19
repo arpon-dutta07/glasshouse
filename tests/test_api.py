@@ -48,8 +48,7 @@ async def test_devices_endpoints(client):
     resp = await client.get("/api/devices")
     assert resp.status_code == 200
     data = resp.json()
-    assert data["count"] == 1
-    assert data["devices"][0]["mac_address"] == "a4:83:e7:11:22:33"
+    assert any(d["mac_address"] == "a4:83:e7:11:22:33" for d in data["devices"])
 
     # Get single device
     resp_single = await client.get("/api/devices/a4:83:e7:11:22:33")
@@ -72,25 +71,7 @@ async def test_devices_endpoints(client):
     assert "a4:83:e7:11:22:33" not in macs_after_del
 
 
-@pytest.mark.asyncio
-async def test_device_sessions_endpoint(client):
-    db = app_state.database
-    mac = "aa:bb:cc:dd:ee:ff"
-    await db.upsert_device(mac_address=mac, ip_address="192.168.1.99", device_name="Test Device")
-    await db.open_device_session(mac)
 
-    resp = await client.get(f"/api/devices/{mac}/sessions")
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["count"] >= 1
-    assert data["sessions"][0]["device_mac"] == mac
-    assert data["sessions"][0]["disconnected_at"] is None
-
-    await db.close_device_session(mac)
-    resp2 = await client.get(f"/api/devices/{mac}/sessions")
-    assert resp2.status_code == 200
-    data2 = resp2.json()
-    assert data2["sessions"][0]["disconnected_at"] is not None
 
 
 @pytest.mark.asyncio

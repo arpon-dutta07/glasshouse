@@ -11,7 +11,7 @@ import socket
 import subprocess
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 
 logger = logging.getLogger(__name__)
 
@@ -314,14 +314,6 @@ class DeviceTracker:
 
         return mapping
 
-    def get_active_macs(self) -> Set[str]:
-        """Returns set of normalized MAC addresses currently active on the LAN/Wi-Fi."""
-        mapping = self.refresh_arp_cache()
-        active = set(mapping.values())
-        if self.local_mac:
-            active.add(self.local_mac)
-        return active
-
     def resolve_mac_for_ip(self, ip: str) -> Optional[str]:
         """Resolves IP to MAC address using cache and ARP refresh."""
         if ip in self.ip_to_mac_cache:
@@ -329,33 +321,4 @@ class DeviceTracker:
 
         self.refresh_arp_cache()
         return self.ip_to_mac_cache.get(ip)
-
-    def scan_local_subnet(self) -> Dict[str, str]:
-        """Fast concurrent ARP/ping sweep across local /24 subnet to discover all active Wi-Fi devices."""
-        import concurrent.futures
-        local_hostname, local_ip = self.local_hostname, self.local_ip
-        if not local_ip:
-            return self.refresh_arp_cache()
-
-        prefix = ".".join(local_ip.split(".")[:3])
-        ips = [f"{prefix}.{i}" for i in range(1, 255)]
-
-        def probe(ip):
-            try:
-                subprocess.run(
-                    ["ping", "-n", "1", "-w", "150", ip],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                    timeout=1,
-                )
-            except Exception:
-                pass
-
-        try:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
-                list(executor.map(probe, ips, timeout=4))
-        except Exception:
-            pass
-
-        return self.refresh_arp_cache()
 
