@@ -339,56 +339,7 @@ export default function DeviceDetailPage() {
         </div>
       </div>
 
-      {/* Connection & Disconnection Session History Timeline */}
-      <div className="space-y-3">
-        <h3 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-widest flex items-center gap-1.5 font-hud">
-          <History className="w-3.5 h-3.5 text-cyan-500" />
-          CONNECTION & DISCONNECTION HISTORY ({sessions.length} SESSIONS)
-        </h3>
 
-        <div className="rounded-2xl radar-panel p-4 font-mono text-xs">
-          {sessions.length === 0 ? (
-            <div className="py-6 text-center text-slate-500 text-xs">
-              <span className="text-emerald-500 font-bold">●</span> Currently connected in active initial session.
-            </div>
-          ) : (
-            <div className="divide-y divide-slate-200 dark:divide-white/[0.04] space-y-2">
-              {sessions.map((sess, idx) => {
-                const connDate = new Date(sess.connected_at);
-                const isCurrent = !sess.disconnected_at;
-                const disconnDate = sess.disconnected_at ? new Date(sess.disconnected_at) : null;
-
-                return (
-                  <div key={sess.id || idx} className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px]">
-                    <div className="flex items-center gap-2">
-                      <span className={`w-2 h-2 rounded-full ${isCurrent ? "bg-emerald-500 animate-pulse" : "bg-slate-400"}`} />
-                      <span className="font-bold text-slate-800 dark:text-slate-200">
-                        {isCurrent ? "Active Session" : `Session #${sessions.length - idx}`}
-                      </span>
-                      <span className="text-slate-400 dark:text-slate-600">·</span>
-                      <span className="text-slate-600 dark:text-slate-400">
-                        Joined {connDate.toLocaleDateString()} at {connDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                      </span>
-                    </div>
-
-                    <div className="text-slate-500">
-                      {isCurrent ? (
-                        <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20">
-                          🟢 Still Online (Active Now)
-                        </span>
-                      ) : (
-                        <span>
-                          Disconnected at {disconnDate?.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </div>
 
       {/* If Device Has Live Sniffed Telemetry (Host Machine or Hotspot-routed) */}
       {hasLiveTelemetry ? (
