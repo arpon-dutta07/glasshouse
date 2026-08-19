@@ -158,6 +158,15 @@ class Database:
             )
             await db.commit()
 
+    async def delete_device(self, mac_address: str):
+        """Removes a device and its associated connections and scores."""
+        mac = mac_address.lower().strip()
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("DELETE FROM connections WHERE device_mac = ?", (mac,))
+            await db.execute("DELETE FROM device_scores WHERE device_mac = ?", (mac,))
+            await db.execute("DELETE FROM devices WHERE mac_address = ?", (mac,))
+            await db.commit()
+
     async def update_device_name(self, mac_address: str, device_name: str):
         """Updates the custom friendly name for a device."""
         mac = mac_address.lower().strip()

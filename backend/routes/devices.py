@@ -13,12 +13,21 @@ def get_db() -> Database:
 
 
 @router.get("")
-async def list_devices(db: Database = Depends(get_db)):
-    """Returns all registered devices on the network with their latest privacy scores."""
+async def list_devices(active_only: bool = Query(False), db: Database = Depends(get_db)):
+    """Returns devices on the network with dynamic online presence and privacy scores."""
+    from backend.main import app_state
+    tracker = getattr(app_state, "device_tracker", None)
+    active_macs = tracker.get_active_macs() if tracker else set()
+
     devices = await db.get_all_devices()
     latest_scores = await db.get_latest_scores()
+    
+    result = []
     for dev in devices:
-        mac = dev.get("mac_address", "")
+        mac = dev.get("mac_address", "").lower()
+        is_online = mac in active_macs
+        dev["is_online"] = is_online
+
         if mac in latest_scores:
             dev["current_score"] = latest_scores[mac]["score"]
             dev["current_tracker_count"] = latest_scores[mac]["tracker_count"]
@@ -27,7 +36,11 @@ async def list_devices(db: Database = Depends(get_db)):
             dev["current_score"] = 100
             dev["current_tracker_count"] = 0
             dev["current_total_count"] = 0
-    return {"devices": devices, "count": len(devices)}
+
+        if not active_only or is_online:
+            result.append(dev)
+
+    return {"devices": result, "count": len(result)}
 
 
 @router.get("/{mac}")
@@ -59,6 +72,13 @@ async def update_device_name(mac: str, payload: dict, db: Database = Depends(get
         raise HTTPException(status_code=400, detail="Device name cannot be empty")
     await db.update_device_name(mac, new_name)
     return {"status": "ok", "mac": mac, "device_name": new_name}
+
+
+@router.delete("/{mac}")
+async def delete_device(mac: str, db: Database = Depends(get_db)):
+    """Removes an obsolete or disconnected device from the system."""
+    await db.delete_device(mac)
+    return {"status": "ok", "deleted": mac}
 
 
 @router.post("/scan")

@@ -62,6 +62,14 @@ async def test_devices_endpoints(client):
     resp_404 = await client.get("/api/devices/00:00:00:00:00:00")
     assert resp_404.status_code == 404
 
+    # Delete device
+    resp_del = await client.delete("/api/devices/a4:83:e7:11:22:33")
+    assert resp_del.status_code == 200
+    assert resp_del.json()["status"] == "ok"
+
+    resp_after_del = await client.get("/api/devices")
+    assert resp_after_del.json()["count"] == 0
+
 
 @pytest.mark.asyncio
 async def test_connections_filtering(client):

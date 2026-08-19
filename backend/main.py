@@ -93,34 +93,48 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Could not re-resolve existing device vendors: {e}")
 
-    # 6b. Perform initial Wi-Fi network device discovery scan in background
-    async def initial_network_scan():
-        try:
-            mapping = await asyncio.to_thread(app_state.device_tracker.scan_local_subnet)
-            for ip, mac in mapping.items():
-                vendor = app_state.device_tracker.lookup_vendor(mac)
-                name = app_state.device_tracker.suggest_device_name(mac, vendor=vendor, ip=ip)
-                await app_state.database.upsert_device(
-                    mac_address=mac,
-                    ip_address=ip,
-                    device_name=name,
-                    vendor=vendor,
-                )
-            if app_state.device_tracker.local_ip:
-                local_mac = app_state.device_tracker.ip_to_mac_cache.get(app_state.device_tracker.local_ip) or f"ip:{app_state.device_tracker.local_ip}"
-                local_vendor = app_state.device_tracker.lookup_vendor(local_mac) if not local_mac.startswith("ip:") else None
-                local_name = app_state.device_tracker.suggest_device_name(local_mac, vendor=local_vendor, ip=app_state.device_tracker.local_ip)
-                await app_state.database.upsert_device(
-                    mac_address=local_mac,
-                    ip_address=app_state.device_tracker.local_ip,
-                    device_name=local_name,
-                    vendor=local_vendor,
-                )
-            logger.info("Initial Wi-Fi network device scan complete.")
-        except Exception as e:
-            logger.warning(f"Error during initial network scan: {e}")
+    # 6b. Continuous runtime Wi-Fi device discovery & live presence monitor
+    async def periodic_network_device_monitor():
+        while True:
+            try:
+                mapping = await asyncio.to_thread(app_state.device_tracker.scan_local_subnet)
+                now = datetime.now(timezone.utc)
+                from backend.device_tracker import infer_vendor_from_name
 
-    asyncio.create_task(initial_network_scan())
+                for ip, mac in mapping.items():
+                    if not mac or mac == "00:00:00:00:00:00":
+                        continue
+                    vendor = app_state.device_tracker.lookup_vendor(mac)
+                    name = app_state.device_tracker.suggest_device_name(mac, vendor=vendor, ip=ip)
+                    if not vendor:
+                        vendor = infer_vendor_from_name(name)
+                    await app_state.database.upsert_device(
+                        mac_address=mac,
+                        ip_address=ip,
+                        device_name=name,
+                        vendor=vendor,
+                        timestamp=now,
+                    )
+
+                if app_state.device_tracker.local_ip:
+                    local_mac = app_state.device_tracker.local_mac or app_state.device_tracker.ip_to_mac_cache.get(app_state.device_tracker.local_ip) or f"ip:{app_state.device_tracker.local_ip}"
+                    local_vendor = app_state.device_tracker.lookup_vendor(local_mac) if not local_mac.startswith("ip:") else None
+                    local_name = app_state.device_tracker.suggest_device_name(local_mac, vendor=local_vendor, ip=app_state.device_tracker.local_ip)
+                    await app_state.database.upsert_device(
+                        mac_address=local_mac,
+                        ip_address=app_state.device_tracker.local_ip,
+                        device_name=local_name,
+                        vendor=local_vendor,
+                        timestamp=now,
+                    )
+
+                await app_state.database.purge_pseudo_devices()
+            except Exception as e:
+                logger.debug(f"Error during network monitor loop: {e}")
+
+            await asyncio.sleep(8)
+
+    asyncio.create_task(periodic_network_device_monitor())
 
     # 7. Initialize Pipeline with WebSocket broadcast hook
     def broadcast_to_ws(event: dict):

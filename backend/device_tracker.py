@@ -127,6 +127,32 @@ def normalize_mac(mac: str) -> str:
     return mac.lower().strip()
 
 
+def infer_vendor_from_name(name: Optional[str]) -> Optional[str]:
+    """Infers hardware vendor from resolved hostname."""
+    if not name:
+        return None
+    text = name.lower()
+    if "oneplus" in text:
+        return "OnePlus Technology"
+    if "realme" in text:
+        return "Realme / Oppo"
+    if "oppo" in text:
+        return "Oppo Electronics"
+    if "samsung" in text or "galaxy" in text or "a13" in text:
+        return "Samsung Electronics"
+    if "apple" in text or "iphone" in text or "ipad" in text or "macbook" in text:
+        return "Apple, Inc."
+    if "xiaomi" in text or "redmi" in text or "poco" in text:
+        return "Xiaomi Communications"
+    if "vivo" in text or "iqoo" in text:
+        return "Vivo Mobile"
+    if "pixel" in text or "google" in text:
+        return "Google, Inc."
+    if "digisol" in text or "rtkgw" in text:
+        return "Digisol Systems Limited"
+    return None
+
+
 class DeviceTracker:
     """Tracks active LAN devices, maps IP <-> MAC addresses, and resolves vendors."""
 
@@ -287,6 +313,14 @@ class DeviceTracker:
             self.mac_to_ip_cache[mac] = ip
 
         return mapping
+
+    def get_active_macs(self) -> Set[str]:
+        """Returns set of normalized MAC addresses currently active on the LAN/Wi-Fi."""
+        mapping = self.refresh_arp_cache()
+        active = set(mapping.values())
+        if self.local_mac:
+            active.add(self.local_mac)
+        return active
 
     def resolve_mac_for_ip(self, ip: str) -> Optional[str]:
         """Resolves IP to MAC address using cache and ARP refresh."""
