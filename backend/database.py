@@ -323,6 +323,44 @@ class Database:
             computed_at=computed_at,
         )
 
+    async def get_device_live_stats(self, device_mac: str, window_hours: int = 24) -> Dict[str, Any]:
+        """Computes real-time live stats and privacy score directly from connections in the last 24h window."""
+        from datetime import timedelta
+        mac = device_mac.lower().strip()
+        since = (datetime.now(timezone.utc) - timedelta(hours=window_hours)).isoformat()
+
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute(
+                """
+                SELECT 
+                    COUNT(*) as total_count,
+                    SUM(CASE WHEN classification IN ('tracker', 'ad_network') THEN 1 ELSE 0 END) as tracker_count,
+                    SUM(CASE WHEN classification = 'malicious' THEN 1 ELSE 0 END) as malicious_count
+                FROM connections
+                WHERE (LOWER(device_mac) = ? OR device_mac IS NULL) AND timestamp >= ?
+                """,
+                (mac, since),
+            )
+            row = await cursor.fetchone()
+            total = row["total_count"] if row and row["total_count"] is not None else 0
+            trackers = row["tracker_count"] if row and row["tracker_count"] is not None else 0
+            malicious = row["malicious_count"] if row and row["malicious_count"] is not None else 0
+
+            if total == 0:
+                score = 100
+            else:
+                tracker_penalty = (trackers / total) * 70
+                malicious_penalty = (malicious / total) * 100
+                score = max(0, min(100, round(100 - tracker_penalty - malicious_penalty)))
+
+            return {
+                "score": score,
+                "tracker_count": trackers,
+                "total_count": total,
+                "malicious_count": malicious,
+            }
+
     async def get_latest_scores(self) -> Dict[str, Dict[str, Any]]:
         """Returns the most recent score snapshot for each device."""
         query = """

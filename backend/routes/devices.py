@@ -14,22 +14,27 @@ def get_db() -> Database:
 
 @router.get("")
 async def list_devices(db: Database = Depends(get_db)):
-    """Returns the monitored host device with its privacy scores."""
+    """Returns the monitored host device with real-time live privacy scores and exact handshake counts."""
     devices = await db.get_all_devices()
     latest_scores = await db.get_latest_scores()
     
     result = []
     for dev in devices:
-        mac = dev.get("mac_address", "").lower()
-        if mac in latest_scores:
-            dev["current_score"] = latest_scores[mac]["score"]
-            dev["current_tracker_count"] = latest_scores[mac]["tracker_count"]
-            dev["current_total_count"] = latest_scores[mac]["total_count"]
-        else:
-            dev["current_score"] = 100
-            dev["current_tracker_count"] = 0
-            dev["current_total_count"] = 0
+        mac = dev.get("mac_address", "").lower().strip()
+        live_stats = await db.get_device_live_stats(mac)
+        
+        score = live_stats["score"]
+        tracker_count = live_stats["tracker_count"]
+        total_count = live_stats["total_count"]
 
+        if mac in latest_scores and latest_scores[mac].get("total_count", 0) >= total_count:
+            score = latest_scores[mac]["score"]
+            tracker_count = latest_scores[mac]["tracker_count"]
+            total_count = latest_scores[mac]["total_count"]
+
+        dev["current_score"] = score
+        dev["current_tracker_count"] = tracker_count
+        dev["current_total_count"] = total_count
         result.append(dev)
 
     return {"devices": result, "count": len(result)}
@@ -42,13 +47,13 @@ async def get_device(mac: str, db: Database = Depends(get_db)):
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
 
+    live_stats = await db.get_device_live_stats(mac)
     scores = await db.get_score_history(mac, limit=50)
     recent_conns = await db.get_recent_connections(limit=50, device_mac=mac)
 
-    latest_score = scores[0] if scores else None
-    device["current_score"] = latest_score["score"] if latest_score else 100
-    device["current_tracker_count"] = latest_score["tracker_count"] if latest_score else 0
-    device["current_total_count"] = latest_score["total_count"] if latest_score else 0
+    device["current_score"] = live_stats["score"]
+    device["current_tracker_count"] = live_stats["tracker_count"]
+    device["current_total_count"] = live_stats["total_count"]
 
     return {
         "device": device,

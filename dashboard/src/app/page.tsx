@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { Device, NetworkStats, fetchDevices, fetchStats } from "@/lib/api";
+import React, { useEffect, useState, useCallback } from "react";
+import { Device, NetworkStats, ConnectionEvent, fetchDevices, fetchStats } from "@/lib/api";
 import { HostDeviceCard } from "@/components/HostDeviceCard";
 import { LiveFeed } from "@/components/LiveFeed";
 import { ScoreGauge } from "@/components/ScoreGauge";
@@ -13,7 +13,7 @@ export default function OverviewPage() {
   const [stats, setStats] = useState<NetworkStats | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const [devs, s] = await Promise.all([fetchDevices(), fetchStats()]);
       setDevices(Array.isArray(devs) ? devs : []);
@@ -23,16 +23,36 @@ export default function OverviewPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 6000);
+    const interval = setInterval(loadData, 4000);
     return () => clearInterval(interval);
-  }, []);
+  }, [loadData]);
 
   // Main host device (This PC)
-  const hostDevice = devices.length > 0 ? devices[0] : null;
+  const hostDevice =
+    devices.find(
+      (d) =>
+        d.device_name?.toLowerCase().includes("pc") ||
+        d.ip_address === "192.168.1.2" ||
+        d.mac_address === "9c:2f:9d:91:39:cd"
+    ) || (devices.length > 0 ? devices[0] : null);
+
+  const handleLiveEventsUpdate = (events: ConnectionEvent[]) => {
+    if (events.length > 0 && stats) {
+      // Immediate optimistic update of total counter
+      setStats((prev) =>
+        prev
+          ? {
+              ...prev,
+              total_connections: Math.max(prev.total_connections, events.length),
+            }
+          : prev
+      );
+    }
+  };
 
   return (
     <div className="space-y-8 font-sans">
@@ -42,6 +62,7 @@ export default function OverviewPage() {
       {/* Flagship Hero: Monitored Host Device Summary ("This PC") */}
       <HostDeviceCard
         device={hostDevice}
+        stats={stats}
         onRenamed={loadData}
       />
 
@@ -108,7 +129,7 @@ export default function OverviewPage() {
 
       {/* Main Section: Terminal Live Stream Feed */}
       <div className="space-y-4">
-        <LiveFeed />
+        <LiveFeed onEventsUpdate={handleLiveEventsUpdate} />
       </div>
     </div>
   );
