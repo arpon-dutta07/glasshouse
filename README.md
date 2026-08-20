@@ -88,25 +88,35 @@ Your computer is constantly phoning home. Windows telemetry, browser analytics, 
 │              CLASSIFICATION LAYER  (classifier/)                     │
 │                                                                      │
 │  ┌────────────────────────────────────────────────────────────────┐   │
-│  │ Layer 1: Suffix Domain Trie                                    │   │
-│  │   • StevenBlack Unified Hosts (91K+ rules)                    │   │
-│  │   • EasyPrivacy + EasyList (Firebog mirror)                   │   │
-│  │   • OISD Basic Domains                                        │   │
-│  │   • 90+ curated seed rules (offline bootstrap)                │   │
-│  │   • Custom user allowlist / blocklist overrides                │   │
+│  │ Layer 1: Custom User Rules & Overrides                         │   │
+│  │   • Instant user allowlist (first_party) & blocklist overrides │   │
 │  └────────────────────────────┬───────────────────────────────────┘   │
-│                               │ No match?                            │
+│                               │ No override?                         │
 │  ┌────────────────────────────▼───────────────────────────────────┐   │
-│  │ Layer 2: Threat Intelligence                                   │   │
-│  │   • URLhaus (abuse.ch) — free, no API key                     │   │
-│  │   • VirusTotal API v3 — rate-limited, 3+ vendor consensus     │   │
+│  │ Layer 2: Suffix Domain Trie (O(k) Reverse-Label Search)        │   │
+│  │   • StevenBlack Unified Hosts + EasyPrivacy + EasyList + OISD  │   │
+│  │   • 500+ curated offline seed rules (Google, MS, Apple, etc.)  │   │
+│  │   • Longest suffix match (e.g. sub.telemetry.domain.com)       │   │
 │  └────────────────────────────┬───────────────────────────────────┘   │
-│                               │ Still unknown?                       │
+│                               │ No trie match?                       │
 │  ┌────────────────────────────▼───────────────────────────────────┐   │
-│  │ Layer 3: Domain Enrichment (Fallback Context)                  │   │
-│  │   • WHOIS/RDAP registration age (young domain flagging)        │   │
-│  │   • TLS certificate Organization field                         │   │
-│  │   • Hosting provider / ASN identification                      │   │
+│  │ Layer 3: Threat Intelligence Feeds                             │   │
+│  │   • URLhaus (abuse.ch) live malware/C2 domain signatures        │   │
+│  │   • VirusTotal API v3 — 3+ vendor consensus flagging           │   │
+│  └────────────────────────────┬───────────────────────────────────┘   │
+│                               │ Not flagged?                         │
+│  ┌────────────────────────────▼───────────────────────────────────┐   │
+│  │ Layer 4: Heuristic Pattern Engine                              │   │
+│  │   • Telemetry & analytics keyword signatures (telemetry, rum)  │   │
+│  │   • Adtech & RTB bidding keyword signatures (adserver, ssp)    │   │
+│  │   • Structural root domain & brand TLD catalog (.microsoft)    │   │
+│  └────────────────────────────┬───────────────────────────────────┘   │
+│                               │ Zero signals?                        │
+│  ┌────────────────────────────▼───────────────────────────────────┐   │
+│  │ Layer 5: Unclassified & Deep Domain Enrichment                 │   │
+│  │   • WHOIS/RDAP registration age (young domain risk indicator)  │   │
+│  │   • TLS certificate Organization field inspection              │   │
+│  │   • Hosting provider / ASN cloud network identification        │   │
 │  └────────────────────────────────────────────────────────────────┘   │
 └──────────────────────────────┬───────────────────────────────────────┘
                                │ DomainClassification
@@ -210,6 +220,78 @@ The formula penalizes both the **proportion** of tracking connections (up to 60 
 | **60 – 74** | C | Fair | 🟡 Amber |
 | **40 – 59** | D | Concerning | 🟠 Orange |
 | **0 – 39** | F | Critical | 🔴 Red |
+
+---
+
+## 🎯 5-Layer High-Precision Classification Engine
+
+Glasshouse employs a **multi-stage, layered domain classification pipeline** designed to provide instant, deterministic, and highly accurate privacy categorization for every outbound TLS connection.
+
+```
+Incoming TLS SNI Record
+        │
+        ▼
+┌────────────────────────────────────────────────────────┐
+│  Layer 1: Custom User Rule Engine                      │
+│  • Highest priority; exact & wildcard allow/block list │
+└───────────────────────┬────────────────────────────────┘
+                        │ No custom rule
+                        ▼
+┌────────────────────────────────────────────────────────┐
+│  Layer 2: Reverse-Label Suffix Domain Trie (500+ Rules)│
+│  • O(k) longest-suffix search in memory                │
+│  • Merges StevenBlack, EasyPrivacy, EasyList, OISD     │
+└───────────────────────┬────────────────────────────────┘
+                        │ No trie match
+                        ▼
+┌────────────────────────────────────────────────────────┐
+│  Layer 3: Real-Time Threat Intelligence                │
+│  • URLhaus (abuse.ch) live signature feed              │
+│  • VirusTotal API v3 (≥ 3 security vendor consensus)   │
+└───────────────────────┬────────────────────────────────┘
+                        │ Clean / Not malicious
+                        ▼
+┌────────────────────────────────────────────────────────┐
+│  Layer 4: Heuristic Domain-Name Pattern Engine         │
+│  • Telemetry/Analytics signals: analytics, telemetry.. │
+│  • Adtech/Bidding signals: adserver, rtb, ssp, bid..   │
+│  • Root infrastructure & Brand TLD resolution (.google)│
+└───────────────────────┬────────────────────────────────┘
+                        │ Genuinely zero signals
+                        ▼
+┌────────────────────────────────────────────────────────┐
+│  Layer 5: Unclassified with Secondary Deep Enrichment  │
+│  • WHOIS/RDAP domain age & registration year           │
+│  • Remote TLS Certificate Organization extraction      │
+│  • ASN & Cloud Hosting network identification (AWS, GCP│
+└────────────────────────────────────────────────────────┘
+```
+
+### Layer Details & Taxonomy
+
+| Layer | Component | Mechanism | Priority |
+| :--- | :--- | :--- | :--- |
+| **Layer 1** | **User Custom Overrides** | Hash-table lookups for user-configured allowlist (`first_party`) and blocklist rules (`tracker`, `ad_network`, `malicious`). | **1 (Instant Override)** |
+| **Layer 2** | **Suffix Domain Trie** | $O(k)$ reverse label trie search (`['com', 'microsoft', 'data', 'events']`). Longer matching suffixes take precedence (e.g. `events.data.microsoft.com` matches as `tracker` over `microsoft.com`). Loaded with 500+ seed rules and optional public lists. | **2 (Deterministic)** |
+| **Layer 3** | **Threat Intelligence** | Queries URLhaus and VirusTotal v3 for known malware C2, phishing gateways, and ransomware domains. Caches results in memory for 48 hours. | **3 (Security Risk)** |
+| **Layer 4** | **Heuristic Pattern Engine** | Semantic domain pattern analysis:<br>• **Trackers**: `telemetry`, `analytics`, `metrics`, `pixel`, `beacon`, `crashlytics`, `event-log`, `clickstream`, `rum`, `log-upload`<br>• **Ad Networks**: `adserver`, `adservice`, `adtech`, `adsystem`, `syndication`, `bidding`, `ssp`, `dsp`, `rtb`, `adform`<br>• **First Party**: Structural root domain catalog (Google, Microsoft, Apple, AWS, CDNs, GitHub, Spotify, Instagram, etc.). | **4 (Semantic Analysis)** |
+| **Layer 5** | **Unclassified Fallback** | Domains that exhibit zero tracker/adtech/malicious signals are classified as `Unclassified`. The background enrichment engine queries WHOIS/RDAP age, TLS certificate organization (`O` field), and ASN cloud host to offer descriptive context. | **5 (Strict Fallback)** |
+
+### Live Real-World Classification Examples
+
+| Domain Sample | Assigned Category | Matching Engine Layer | Rationale |
+| :--- | :--- | :--- | :--- |
+| `browser.events.data.microsoft.com` | 🔴 **Tracker** | Layer 2 (Suffix Trie) | Matches Microsoft telemetry root rule |
+| `play.googleapis.com` | 🔴 **Tracker** | Layer 2 (Suffix Trie) | Google device measurement / telemetry |
+| `api2.amplitude.com` | 🔴 **Tracker** | Layer 2 (Suffix Trie) | Amplitude user-behavior analytics SDK |
+| `pagead2.googlesyndication.com` | 🟡 **Ad Network** | Layer 2 (Suffix Trie) | Google Ads programmatic auction endpoint |
+| `c2-payload.top` | 🚨 **Flagged Threat** | Layer 3 (Threat Intel) | Flagged by URLhaus malware intelligence |
+| `custom-telemetry-beacon.org` | 🔴 **Tracker** | Layer 4 (Heuristic) | Keyword signature `telemetry` + `beacon` |
+| `bidder.adserver-fast.net` | 🟡 **Ad Network** | Layer 4 (Heuristic) | Keyword signature `adserver` + `bidder` |
+| `www.instagram.com` | 🟢 **First Party** | Layer 4 (First Party Catalog) | Instagram core content delivery |
+| `alive.github.com` | 🟢 **First Party** | Layer 4 (First Party Catalog) | GitHub core connection service |
+| `spclient.wg.spotify.com` | 🟢 **First Party** | Layer 4 (First Party Catalog) | Spotify core music streaming endpoint |
+| `unseen-private-node.xyz` | ⚪ **Unclassified** | Layer 5 (Fallback) | Genuinely unknown, non-standard domain |
 
 ---
 

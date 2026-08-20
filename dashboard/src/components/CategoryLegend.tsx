@@ -41,7 +41,7 @@ export const CategoryLegend: React.FC = () => {
     },
     {
       label: "Flagged Threat",
-      dot: "bg-rose-600 shadow-[0_0_8px_rgba(225,29,72,0.6)] ring-2 ring-rose-400",
+      dot: "bg-rose-500 ring-2 ring-rose-500/30",
       description:
         "Identified by threat intelligence databases (URLhaus / VirusTotal) as malicious infrastructure, malware, or phishing.",
     },
@@ -67,9 +67,9 @@ export const CategoryLegend: React.FC = () => {
         <span>Legend & Guide</span>
       </button>
 
-      {/* Popover — opens upward so it doesn't get clipped by the scrollable list below */}
+      {/* Popover — opens downward */}
       {isOpen && (
-        <div className="absolute right-0 bottom-full mb-2 w-80 sm:w-96 z-[100] rounded-2xl glass-card bg-white/95 dark:bg-[#10131e]/95 border border-slate-200/80 dark:border-white/[0.1] p-5 shadow-2xl shadow-black/20 dark:shadow-black/60 backdrop-blur-2xl animate-count font-sans">
+        <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 z-[100] rounded-2xl glass-card bg-white/95 dark:bg-[#10131e]/95 border border-slate-200/80 dark:border-white/[0.1] p-5 shadow-2xl shadow-black/20 dark:shadow-black/60 backdrop-blur-2xl animate-count font-sans">
           {/* Header */}
           <div className="flex items-start justify-between gap-2 pb-3 border-b border-slate-200/80 dark:border-white/[0.06]">
             <div>
@@ -90,7 +90,7 @@ export const CategoryLegend: React.FC = () => {
           </div>
 
           {/* Categories List */}
-          <div className="space-y-3.5 pt-3.5 max-h-[320px] overflow-y-auto">
+          <div className="space-y-3.5 pt-3.5">
             {categories.map((cat) => (
               <div key={cat.label} className="text-xs">
                 <div className="flex items-center gap-2 mb-1">
