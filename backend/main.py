@@ -132,15 +132,18 @@ async def lifespan(app: FastAPI):
 
     def on_sni_captured(record: SNIRecord):
         """Callback from sniffer thread — logs and feeds into pipeline."""
-        classification = app_state.classifier.classify(record.sni_domain)
-        logger.info(
-            f"[LIVE] {record.timestamp.strftime('%Y-%m-%dT%H:%M:%S%z')} "
-            f"{record.src_ip} ({record.src_mac or 'unknown-mac'}) -> "
-            f"{record.sni_domain} [{classification.category}]"
-        )
-        asyncio.run_coroutine_threadsafe(
-            app_state.pipeline.process_sni_record(record), capture_loop
-        )
+        try:
+            classification = app_state.classifier.classify(record.sni_domain)
+            logger.info(
+                f"[LIVE] {record.timestamp.strftime('%Y-%m-%dT%H:%M:%S%z')} "
+                f"{record.src_ip} ({record.src_mac or 'unknown-mac'}) -> "
+                f"{record.sni_domain} [{classification.category}]"
+            )
+            asyncio.run_coroutine_threadsafe(
+                app_state.pipeline.process_sni_record(record), capture_loop
+            )
+        except Exception as e:
+            logger.warning(f"Error handling captured SNI record: {e}")
 
     try:
         interface = detect_active_interface()

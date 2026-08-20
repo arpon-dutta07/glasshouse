@@ -41,8 +41,8 @@ export default function OverviewPage() {
         d.mac_address === "9c:2f:9d:91:39:cd"
     ) || (devices.length > 0 ? devices[0] : null);
 
-  const handleLiveEventsUpdate = (events: ConnectionEvent[]) => {
-    if (events.length > 0 && stats) {
+  const handleLiveEventsUpdate = useCallback((events: ConnectionEvent[]) => {
+    if (events.length > 0) {
       setStats((prev) =>
         prev
           ? {
@@ -52,7 +52,7 @@ export default function OverviewPage() {
           : prev
       );
     }
-  };
+  }, []);
 
   const privacyScore = stats?.network_average_score ?? 100;
   const trackerPercentage = stats?.tracker_percentage ?? 0;

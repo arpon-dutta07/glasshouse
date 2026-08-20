@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Activity, Sliders, Shield, Sun, Moon, Volume2, VolumeX, Radio, Sparkles } from "lucide-react";
 import { createLiveWebSocket } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
+import { Logo } from "@/components/Logo";
 
 export const Navbar: React.FC = () => {
   const pathname = usePathname();
@@ -14,7 +15,7 @@ export const Navbar: React.FC = () => {
   const { theme, toggleTheme, soundEnabled, toggleSound } = useTheme();
 
   useEffect(() => {
-    let ws: WebSocket | null = null;
+    let ws: { close: () => void } | null = null;
     try {
       ws = createLiveWebSocket(
         () => {},
@@ -53,9 +54,7 @@ export const Navbar: React.FC = () => {
       >
         {/* Brand */}
         <Link href="/" className="flex items-center gap-2.5 group pl-1">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/20 group-hover:scale-105 transition-transform">
-            <Shield className="w-4 h-4" />
-          </div>
+          <Logo size={28} className="group-hover:scale-105 transition-transform" />
           <div className="flex items-center gap-2">
             <span className="font-heading font-extrabold text-base tracking-tight text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-colors">
               Glasshouse

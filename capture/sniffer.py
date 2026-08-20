@@ -5,6 +5,7 @@ Sniffs traffic on tcp port 443 and extracts SNI records.
 
 from datetime import datetime, timezone
 import logging
+import time
 from typing import Callable, Optional
 from scapy.all import sniff, IP, IPv6, TCP, Ether, Packet, Raw
 from capture.tls_parser import TLSParser, SNIRecord
@@ -37,46 +38,59 @@ class PacketSniffer:
         if not packet.haslayer(TCP):
             return None
 
-        tcp_layer = packet[TCP]
-        payload = bytes(tcp_layer.payload)
+        try:
+            tcp_layer = packet[TCP]
+            payload = bytes(tcp_layer.payload)
 
-        # Extract IP and MAC info
-        src_ip = "0.0.0.0"
-        dst_ip = "0.0.0.0"
-        if packet.haslayer(IP):
-            src_ip = packet[IP].src
-            dst_ip = packet[IP].dst
-        elif packet.haslayer(IPv6):
-            src_ip = packet[IPv6].src
-            dst_ip = packet[IPv6].dst
+            # Extract IP and MAC info
+            src_ip = "0.0.0.0"
+            dst_ip = "0.0.0.0"
+            if packet.haslayer(IP):
+                src_ip = packet[IP].src
+                dst_ip = packet[IP].dst
+            elif packet.haslayer(IPv6):
+                src_ip = packet[IPv6].src
+                dst_ip = packet[IPv6].dst
 
-        src_mac = None
-        if packet.haslayer(Ether):
-            src_mac = packet[Ether].src.lower()
+            src_mac = None
+            if packet.haslayer(Ether):
+                src_mac = packet[Ether].src.lower()
 
-        return self.reassembler.handle_tcp_packet(
-            src_ip=src_ip,
-            src_port=tcp_layer.sport,
-            dst_ip=dst_ip,
-            dst_port=tcp_layer.dport,
-            seq=tcp_layer.seq,
-            payload=payload,
-            flags=int(tcp_layer.flags),
-            src_mac=src_mac,
-        )
+            return self.reassembler.handle_tcp_packet(
+                src_ip=src_ip,
+                src_port=tcp_layer.sport,
+                dst_ip=dst_ip,
+                dst_port=tcp_layer.dport,
+                seq=tcp_layer.seq,
+                payload=payload,
+                flags=int(tcp_layer.flags),
+                src_mac=src_mac,
+            )
+        except Exception as e:
+            logger.debug(f"Error in process_packet: {e}")
+            return None
 
     def start(self, count: int = 0, timeout: Optional[int] = None):
-        """Starts live packet sniffing."""
+        """Starts live packet sniffing with auto-rearm loop."""
         self.is_running = True
         logger.info(f"Starting packet sniffer on filter '{self.bpf_filter}' (interface={self.interface})")
-        try:
-            sniff(
-                iface=self.interface,
-                filter=self.bpf_filter,
-                prn=self.process_packet,
-                count=count,
-                timeout=timeout,
-                store=0,
-            )
-        finally:
-            self.is_running = False
+        
+        while self.is_running:
+            try:
+                sniff(
+                    iface=self.interface,
+                    filter=self.bpf_filter,
+                    prn=self.process_packet,
+                    count=count,
+                    timeout=timeout,
+                    store=0,
+                )
+            except Exception as e:
+                if not self.is_running:
+                    break
+                logger.warning(f"Packet sniffer interrupted: {e}. Re-arming capture loop in 2s...")
+                time.sleep(2)
+            else:
+                # If sniff ended normally and count/timeout was specified
+                if count > 0 or timeout is not None:
+                    break
