@@ -10,6 +10,12 @@
 </p>
 
 <h1 align="center">🔍 Glasshouse</h1>
+<img width="1919" height="909" alt="image" src="https://github.com/user-attachments/assets/9c2246d9-13e9-4767-bd4c-1ce8fcfa8617" />
+<img width="1919" height="912" alt="image" src="https://github.com/user-attachments/assets/f960fef1-e33a-42d4-8e5d-9b20ed30010d" />
+<img width="1919" height="912" alt="image" src="https://github.com/user-attachments/assets/c0d684c2-343d-48a4-bb27-ac69b6c23d2c" />
+<img width="1919" height="912" alt="image" src="https://github.com/user-attachments/assets/085351bf-cec0-4816-8173-fbe613d4b7f6" />
+<img width="1919" height="906" alt="image" src="https://github.com/user-attachments/assets/3c6a68bf-97b6-4cc4-bd8f-749fd0667351" />
+
 
 <p align="center">
   <strong>Passive TLS Privacy Observability & Live Score Engine for Your Machine</strong>
