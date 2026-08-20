@@ -45,7 +45,7 @@ export const ScoreGauge: React.FC<ScoreGaugeProps> = ({
   const tipAngleRad = Math.PI * (1 - currentScore / 100);
   const centerX = size / 2;
   const centerY = size / 2 + strokeWidth;
-  const tipX = centerX - radius * Math.cos(tipAngleRad);
+  const tipX = centerX + radius * Math.cos(tipAngleRad);
   const tipY = centerY - radius * Math.sin(tipAngleRad);
 
   const getTheme = (s: number) => {
@@ -153,12 +153,12 @@ export const ScoreGauge: React.FC<ScoreGaugeProps> = ({
 
         {/* Numeric Score Center Readout */}
         <div
-          className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
-          style={{ paddingTop: `${size * 0.06}px` }}
+          className="absolute inset-0 flex flex-col items-center justify-end pointer-events-none"
+          style={{ paddingBottom: `${size * 0.02}px` }}
         >
           <span
             className={`font-extrabold font-heading tracking-tight leading-none ${theme.text}`}
-            style={{ fontSize: `${Math.max(18, Math.round(size * 0.26))}px` }}
+            style={{ fontSize: `${Math.max(18, Math.round(size * 0.24))}px` }}
           >
             {safeScore}
           </span>
