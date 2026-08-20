@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { Radio, Filter, Pause, Play, Ban, ShieldAlert, Shield, Info, Activity, ChevronRight, Check } from "lucide-react";
 import {
   ConnectionEvent,
@@ -67,42 +67,78 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({ onEventsUpdate }) => {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [isUserScrolled, setIsUserScrolled] = useState<boolean>(false);
 
-  const loadInitialData = async () => {
+  // Use refs so WebSocket/interval callbacks always see latest values
+  const isPausedRef = useRef(isPaused);
+  isPausedRef.current = isPaused;
+
+  const onEventsUpdateRef = useRef(onEventsUpdate);
+  onEventsUpdateRef.current = onEventsUpdate;
+
+  const loadInitialData = useCallback(async () => {
     const [conns, status, blocked] = await Promise.all([
       fetchConnections({ limit: 40 }),
       fetchBlockingStatus(),
       fetchBlockedDomains(),
     ]);
     setEvents(conns);
-    onEventsUpdate?.(conns);
+    onEventsUpdateRef.current?.(conns);
     setBlockingStatus(status);
     setBlockedSet(new Set(blocked.map((b) => b.domain.toLowerCase())));
-  };
+  }, []);
 
+  // Single stable effect — WebSocket + intervals created once, never torn down on pause toggle
   useEffect(() => {
     loadInitialData();
 
     const ws = createLiveWebSocket((newEvent) => {
-      if (!isPaused) {
-        setEvents((prev) => {
-          const updated = [newEvent, ...prev.slice(0, 80)];
-          onEventsUpdate?.(updated);
-          return updated;
-        });
-      }
+      if (isPausedRef.current) return;
+      setEvents((prev) => {
+        // Avoid duplicate events if already present
+        if (prev.some((e) => (e.id && e.id === newEvent.id) || (e.timestamp === newEvent.timestamp && e.sni_domain === newEvent.sni_domain))) {
+          return prev;
+        }
+        const updated = [newEvent, ...prev.slice(0, 80)];
+        onEventsUpdateRef.current?.(updated);
+        return updated;
+      });
     });
 
-    const interval = setInterval(() => {
+    // Resilient periodic sync to ensure stream is never interrupted
+    const syncInterval = setInterval(async () => {
+      if (isPausedRef.current) return;
+      try {
+        const latestConns = await fetchConnections({ limit: 40 });
+        if (Array.isArray(latestConns) && latestConns.length > 0) {
+          setEvents((prev) => {
+            const combinedMap = new Map<string | number, ConnectionEvent>();
+            for (const item of [...latestConns, ...prev]) {
+              const key = item.id || `${item.sni_domain}-${item.timestamp}`;
+              if (!combinedMap.has(key)) {
+                combinedMap.set(key, item);
+              }
+            }
+            const sorted = Array.from(combinedMap.values()).sort(
+              (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+            ).slice(0, 80);
+            onEventsUpdateRef.current?.(sorted);
+            return sorted;
+          });
+        }
+      } catch {}
+    }, 2500);
+
+    const blocklistInterval = setInterval(() => {
       fetchBlockedDomains().then((blocked) => {
         setBlockedSet(new Set(blocked.map((b) => b.domain.toLowerCase())));
       });
-    }, 15000);
+    }, 12000);
 
     return () => {
       ws.close();
-      clearInterval(interval);
+      clearInterval(syncInterval);
+      clearInterval(blocklistInterval);
     };
-  }, [isPaused]);
+  }, [loadInitialData]);
 
   const handleDomainBlocked = () => {
     if (blockModalDomain) {
@@ -150,7 +186,7 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({ onEventsUpdate }) => {
   });
 
   return (
-    <div className="rounded-3xl glass-card p-6 sm:p-7 flex flex-col h-[680px] relative transition-all duration-300">
+    <div className="rounded-3xl glass-card p-6 sm:p-7 flex flex-col h-[680px] relative transition-all duration-300 overflow-visible">
       {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-200/80 dark:border-white/[0.06]">
         <div className="flex items-center gap-3">
@@ -201,7 +237,7 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({ onEventsUpdate }) => {
       </div>
 
       {/* Filter Tabs Bar */}
-      <div className="flex items-center justify-between py-3 border-b border-slate-200/60 dark:border-white/[0.04] text-xs overflow-x-auto gap-3">
+      <div className="flex items-center justify-between py-3 border-b border-slate-200/60 dark:border-white/[0.04] text-xs overflow-visible gap-3">
         <div className="flex items-center gap-1.5">
           {[
             { id: "all", label: "All Handshakes" },

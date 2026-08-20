@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { Shield, Radio, ExternalLink, Heart } from "lucide-react";
+import { Logo } from "@/components/Logo";
 
 export const Footer: React.FC = () => {
   return (
@@ -12,9 +13,7 @@ export const Footer: React.FC = () => {
           {/* Brand Col */}
           <div className="md:col-span-2 space-y-3">
             <Link href="/" className="inline-flex items-center gap-2.5 group">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/20 group-hover:scale-105 transition-transform">
-                <Shield className="w-4 h-4" />
-              </div>
+              <Logo size={32} className="group-hover:scale-105 transition-transform" />
               <span className="font-heading font-extrabold text-lg tracking-tight text-slate-900 dark:text-white">
                 Glasshouse
               </span>

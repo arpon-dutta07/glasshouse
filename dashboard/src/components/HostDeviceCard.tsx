@@ -214,9 +214,15 @@ export const HostDeviceCard: React.FC<HostDeviceCardProps> = ({ device, stats, o
               <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 block uppercase tracking-wider">
                 Status
               </span>
-              <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 mt-0.5">
+              <span className={`text-sm font-semibold flex items-center gap-1.5 mt-0.5 ${
+                score >= 80
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : score >= 50
+                    ? "text-amber-600 dark:text-amber-400"
+                    : "text-rose-600 dark:text-rose-400"
+              }`}>
                 <ShieldCheck className="w-4 h-4" />
-                {score >= 80 ? "Optimal Privacy" : "Elevated Risk"}
+                {score >= 80 ? "Optimal Privacy" : score >= 50 ? "Elevated Risk" : "High Risk"}
               </span>
             </div>
           </div>

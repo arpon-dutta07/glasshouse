@@ -372,31 +372,79 @@ export async function fetchDomainEnrichment(domain: string): Promise<DomainEnric
 export function createLiveWebSocket(
   onMessage: (event: ConnectionEvent) => void,
   onStatusChange?: (connected: boolean) => void
-): WebSocket {
-  const ws = new WebSocket(`${WS_BASE}/ws/live`);
+): { close: () => void } {
+  let ws: WebSocket | null = null;
+  let isClosed = false;
+  let reconnectTimeout: any = null;
+  let pingInterval: any = null;
+  let retryCount = 0;
 
-  ws.onopen = () => {
-    onStatusChange?.(true);
-  };
+  function connect() {
+    if (isClosed) return;
 
-  ws.onclose = () => {
-    onStatusChange?.(false);
-  };
-
-  ws.onerror = () => {
-    onStatusChange?.(false);
-  };
-
-  ws.onmessage = (msg) => {
     try {
-      const data = JSON.parse(msg.data);
-      if (data.sni_domain) {
-        onMessage(data);
-      }
-    } catch (err) {
-      console.error("Failed to parse WS message:", err);
-    }
-  };
+      ws = new WebSocket(`${WS_BASE}/ws/live`);
 
-  return ws;
+      ws.onopen = () => {
+        retryCount = 0;
+        onStatusChange?.(true);
+        // Start keep-alive ping
+        clearInterval(pingInterval);
+        pingInterval = setInterval(() => {
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            try {
+              ws.send("ping");
+            } catch {}
+          }
+        }, 20000);
+      };
+
+      ws.onclose = () => {
+        onStatusChange?.(false);
+        clearInterval(pingInterval);
+        if (!isClosed) {
+          const delay = Math.min(1000 * Math.pow(1.5, retryCount), 8000);
+          retryCount++;
+          reconnectTimeout = setTimeout(connect, delay);
+        }
+      };
+
+      ws.onerror = () => {
+        onStatusChange?.(false);
+      };
+
+      ws.onmessage = (msg) => {
+        try {
+          const data = JSON.parse(msg.data);
+          if (data && data.type === "pong") {
+            return;
+          }
+          if (data && data.sni_domain) {
+            onMessage(data);
+          }
+        } catch (err) {
+          console.error("Failed to parse WS message:", err);
+        }
+      };
+    } catch (err) {
+      onStatusChange?.(false);
+      if (!isClosed) {
+        reconnectTimeout = setTimeout(connect, 3000);
+      }
+    }
+  }
+
+  connect();
+
+  return {
+    close: () => {
+      isClosed = true;
+      clearInterval(pingInterval);
+      clearTimeout(reconnectTimeout);
+      if (ws) {
+        ws.close();
+      }
+    },
+  };
 }
+
