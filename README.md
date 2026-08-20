@@ -12,42 +12,42 @@
 <h1 align="center">🔍 Glasshouse</h1>
 
 <p align="center">
-  <strong>Passive TLS Network Privacy Observability & Per-Device Score Engine</strong>
+  <strong>Passive TLS Privacy Observability & Live Score Engine for Your Machine</strong>
 </p>
 
 <p align="center">
-  <em>See through your network. Know exactly who your devices are talking to — without breaking a single packet.</em>
+  <em>See through your own traffic. Know exactly which domains your computer talks to — without breaking a single packet.</em>
 </p>
 
 ---
 
 ## 🧠 What is Glasshouse?
 
-Glasshouse is a **self-hosted, privacy-first network monitoring platform** that gives you complete visibility into the outbound connections made by every device on your home network — smart TVs, IoT sensors, phones, laptops, and everything in between.
+Glasshouse is a **self-hosted, privacy-first network monitoring platform** that gives you complete visibility into the outbound HTTPS connections made by **your own machine** — the PC or server running Glasshouse.
 
-Every time a device on your network opens an HTTPS connection, it performs a TLS handshake. Inside that handshake, before any encryption begins, the device announces the destination domain in plaintext via a field called **Server Name Indication (SNI)**. Glasshouse passively captures these handshakes, extracts the SNI domain, classifies it against public tracker and ad-network blocklists, and computes a rolling **privacy score** for each device — all in real time, all without decrypting a single byte of your traffic.
+Every time your computer opens an HTTPS connection, it performs a TLS handshake. Inside that handshake, before any encryption begins, the destination domain is announced in plaintext via a field called **Server Name Indication (SNI)**. Glasshouse passively captures these handshakes on your local network interface, extracts the SNI domain, classifies it against public tracker and ad-network blocklists, and computes a rolling **privacy score** — all in real time, all without decrypting a single byte of your traffic.
 
-Think of it as a **credit score for your devices' privacy hygiene**.
+Think of it as a **credit score for your computer's privacy hygiene**.
 
 ---
 
 ## 🤔 The Problem It Solves
 
-Modern connected devices are constantly phoning home. Your smart TV pings Samsung telemetry servers. Your phone reports to analytics platforms. Your laptop leaks data to ad networks, trackers, and measurement services — all silently, all behind TLS encryption, and all without your knowledge.
+Your computer is constantly phoning home. Windows telemetry, browser analytics, background app trackers, ad-network pings, SDK measurement calls — all happening silently behind TLS encryption, without your knowledge or consent.
 
 **Existing solutions fall short:**
 
 | Tool | Limitation |
 | :--- | :--- |
-| **Pi-hole** | Blocks at DNS level but doesn't show per-device leakiness or compute privacy scores |
+| **Pi-hole** | Blocks at DNS level but doesn't classify connections or compute a live privacy score |
 | **Wireshark** | Powerful but overwhelming; requires manual packet inspection, not built for continuous monitoring |
 | **Browser extensions** | Only cover browser traffic; miss OS-level telemetry, IoT devices, and app-layer tracking |
 | **Router logs** | Show IPs, not domains; no classification, no scoring, no historical trends |
 
 **Glasshouse fills the gap** by providing:
-- ✅ **Per-device attribution** — know exactly which device contacted which tracker
+- ✅ **Full domain-level visibility** — see every single domain your computer connects to, not just IPs
 - ✅ **Automatic classification** — every domain is categorized as tracker, ad network, first-party, malicious, or unknown
-- ✅ **Live privacy scoring** — a rolling 24-hour score that tells you how "leaky" each device is
+- ✅ **Live privacy scoring** — a rolling 24-hour score that tells you how "leaky" your machine is
 - ✅ **Real-time dashboard** — sub-2-second updates via WebSocket, no page refreshes needed
 - ✅ **Zero decryption** — only inspects the unencrypted SNI field, never touches encrypted payloads
 
@@ -57,15 +57,15 @@ Modern connected devices are constantly phoning home. Your smart TV pings Samsun
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│                    LOCAL NETWORK DEVICES                             │
-│        (Smart TVs, IoT, Phones, Laptops, Consoles)                  │
+│                  HOST MACHINE  (This PC / Server)                    │
+│            Outbound HTTPS connections from apps, OS, browser         │
 └───────────────────────────┬──────────────────────────────────────────┘
                             │ Port 443 (HTTPS) Outbound
                             ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│     Wi-Fi AP (hostapd/dnsmasq) OR Managed Switch SPAN Port          │
+│              Local Network Interface  (auto-detected)                │
 └───────────────────────────┬──────────────────────────────────────────┘
-                            │ Mirrored / Bridged Traffic
+                            │ Raw packet capture (Scapy)
                             ▼
 ┌──────────────────────────────────────────────────────────────────────┐
 │                   CAPTURE LAYER  (capture/)                          │
@@ -172,9 +172,9 @@ Five independently testable modules: **Capture → Classify → Store → Score 
 | **Passive TLS Sniffing** | Captures TLS ClientHello packets on port 443 using Scapy with BPF filters — zero interference with network traffic |
 | **TCP Stream Reassembly** | Handles fragmented ClientHello handshakes split across multiple TCP segments, with 10-second expiry and LRU eviction |
 | **Multi-Layer Domain Classification** | Three-tier classification pipeline: blocklist trie → threat intelligence → domain enrichment |
-| **Per-Device Privacy Scoring** | Rolling 24-hour weighted score (0–100) computed every 60 seconds for every device on the network |
+| **Live Privacy Scoring** | Rolling 24-hour weighted score (0–100) computed every 60 seconds for the host machine |
 | **Real-Time WebSocket Feed** | Sub-2-second dashboard updates via `/ws/live` — every new connection streams live to connected clients |
-| **Device Auto-Identification** | MAC OUI vendor lookup (38K+ IEEE prefixes), ARP table polling, reverse DNS resolution, and smart device naming |
+| **Host Device Identification** | MAC OUI vendor lookup (38K+ IEEE prefixes), local hostname detection, and smart device naming |
 | **Custom Rules Engine** | User-defined allowlists and blocklists with priority override above all blocklist sources |
 | **Domain Blocking** | Optional hosts-file-level blocking with test mode, safety guardrails, and protected domain enforcement |
 | **Threat Intelligence** | Layer 2 checks against URLhaus (abuse.ch) and VirusTotal API v3 with rate limiting and 48-hour caching |
@@ -184,8 +184,8 @@ Five independently testable modules: **Capture → Classify → Store → Score 
 
 | Page | What It Shows |
 | :--- | :--- |
-| **Overview (`/`)** | Network-wide privacy score gauge, tracker ratio percentage, total inspected handshakes, live terminal feed |
-| **Device Detail (`/devices/[mac]`)** | Per-device score trend, connection breakdown by classification, live domain stream, rename & delete actions |
+| **Overview (`/`)** | Host machine privacy score gauge, tracker ratio percentage, total inspected handshakes, live terminal feed |
+| **Device Detail (`/devices/[mac]`)** | Score trend over time, connection breakdown by classification, live domain stream, rename & delete actions |
 | **Custom Rules (`/rules`)** | Manage allowlist/blocklist overrides, add/remove rules with category selection |
 | **Blocked Domains (`/blocked`)** | Active block manager with test/live mode toggle, one-click block/unblock, safety domain protection |
 
@@ -193,7 +193,7 @@ Five independently testable modules: **Capture → Classify → Store → Score 
 
 ## 🧮 Privacy Scoring Formula
 
-Glasshouse computes a per-device privacy score on a **0 – 100 scale** over a **rolling 24-hour window**:
+Glasshouse computes a privacy score on a **0 – 100 scale** over a **rolling 24-hour window** based on your machine's connection history:
 
 $$\text{tracker\_ratio} = \frac{\text{tracker\_connections} + \text{ad\_network\_connections}}{\text{total\_connections}}$$
 
@@ -201,7 +201,7 @@ $$\text{unique\_trackers} = \text{count}(\text{distinct tracker/ad domains conta
 
 $$\text{Score} = \max\Big(0, \; 100 - (\text{tracker\_ratio} \times 60) - \min(\text{unique\_trackers} \times 2, \; 40)\Big)$$
 
-The formula penalizes both the **proportion** of tracking connections (up to 60 points) and the **breadth** of unique trackers contacted (up to 40 points). A device that talks to zero trackers scores a perfect 100.
+The formula penalizes both the **proportion** of tracking connections (up to 60 points) and the **breadth** of unique trackers contacted (up to 40 points). A machine that talks to zero trackers scores a perfect 100.
 
 | Score Range | Grade | Rating | Indicator |
 | :--- | :--- | :--- | :--- |
@@ -227,7 +227,7 @@ The formula penalizes both the **proportion** of tracking connections (up to 60 
 | Backend API | **FastAPI** | Native async/await, automatic OpenAPI docs, built-in WebSocket support |
 | Real-Time Updates | **WebSocket `/ws/live`** | JSON event broadcast to all connected dashboard clients |
 | Frontend | **Next.js 16 + React 19 + Tailwind CSS 4** | Server components, modern React, utility-first styling |
-| Device ID | **MAC OUI + ARP + rDNS** | IEEE vendor database (38K+ prefixes) with hostname resolution fallback |
+| Host Device ID | **MAC OUI + hostname** | IEEE vendor database (38K+ prefixes) with local hostname detection |
 | Deployment | **systemd service** | Auto-restart, capability-bound, production-ready daemon |
 
 ---
@@ -356,7 +356,7 @@ cd ..
 python scripts/seed_demo.py
 ```
 
-This generates realistic synthetic devices, connection histories, and privacy scores so you can explore the dashboard immediately without live network traffic.
+This generates realistic synthetic connection histories and privacy scores so you can explore the dashboard immediately without live network traffic.
 
 ### 4. Start the Backend API
 
@@ -384,19 +384,19 @@ Open **[http://localhost:3000](http://localhost:3000)** to view the Glasshouse d
 
 ## 📡 Deployment Modes
 
-### Mode A — Dedicated Wi-Fi Access Point *(Recommended for IoT Monitoring)*
+### Mode A — Dedicated Wi-Fi Access Point *(Raspberry Pi)*
 
-Turn your Raspberry Pi into an isolated monitoring access point. Devices connect to the Pi's Wi-Fi, and Glasshouse captures all their outbound TLS traffic directly.
+Turn your Raspberry Pi into a monitoring access point. Scripts are provided to configure `hostapd` and `dnsmasq`:
 
 ```bash
 sudo ./scripts/setup_ap.sh
 ```
 
-This configures `hostapd` and `dnsmasq` to create a dedicated monitoring network.
+
 
 ### Mode B — Managed Switch Port Mirroring (SPAN)
 
-Mirror your existing router or switch traffic to the Raspberry Pi's secondary ethernet interface. No network reconfiguration required for client devices.
+Mirror your existing router or switch traffic to the Raspberry Pi's secondary ethernet interface:
 
 ```bash
 sudo ./scripts/setup_mirror.sh eth1
@@ -429,17 +429,17 @@ The service runs with `CAP_NET_RAW` and `CAP_NET_ADMIN` capabilities for raw pac
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `GET` | `/api/devices` | List all discovered devices with live privacy scores |
+| `GET` | `/api/devices` | List discovered host device with live privacy score |
 | `GET` | `/api/devices/{mac}` | Device detail: score history, recent connections, tracker breakdown |
-| `PATCH` | `/api/devices/{mac}` | Rename a device (`{"device_name": "Arpita's Phone"}`) |
-| `DELETE` | `/api/devices/{mac}` | Delete device and all associated connection records |
+| `PATCH` | `/api/devices/{mac}` | Rename the device (`{"device_name": "My Laptop"}`) |
+| `DELETE` | `/api/devices/{mac}` | Delete device record and associated connection logs |
 
 ### Connection & Stats Endpoints
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
 | `GET` | `/api/connections` | Filterable connection stream (`classification`, `device_mac`, `limit`) |
-| `GET` | `/api/stats` | Network-wide: average score, tracker ratio, top offending domains |
+| `GET` | `/api/stats` | Privacy score, tracker ratio, top offending domains |
 | `GET` | `/api/health` | Service health check and version info |
 
 ### Custom Rules Endpoints
@@ -513,7 +513,7 @@ pytest -v
 ## 🗃️ Data Model
 
 ```sql
--- Network devices identified by hardware MAC address
+-- Host device identified by hardware MAC address
 CREATE TABLE devices (
     id              INTEGER PRIMARY KEY,
     mac_address     TEXT UNIQUE NOT NULL,
@@ -535,7 +535,7 @@ CREATE TABLE connections (
     timestamp       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Rolling privacy scores per device
+-- Rolling privacy scores
 CREATE TABLE device_scores (
     id              INTEGER PRIMARY KEY,
     device_mac      TEXT NOT NULL,
@@ -622,5 +622,5 @@ Built for local network privacy awareness, education, and diagnostics.
 ---
 
 <p align="center">
-  <sub>Made with care for network transparency. If your smart TV is talking to 47 different trackers, you deserve to know about it.</sub>
+  <sub>Made with care for network transparency. If your computer is quietly talking to 47 different trackers, you deserve to know about it.</sub>
 </p>
