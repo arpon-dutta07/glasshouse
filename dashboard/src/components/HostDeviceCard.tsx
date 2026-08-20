@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { Laptop, ArrowRight, ShieldCheck, Edit2, Check, X, Wifi, Activity } from "lucide-react";
+import { Laptop, ArrowRight, ShieldCheck, Edit2, Check, X, Wifi, Activity, Cpu, Sparkles } from "lucide-react";
 import { Device, NetworkStats, renameDevice } from "@/lib/api";
 import { ScoreGauge } from "./ScoreGauge";
 import { AnimatedCounter } from "./AnimatedCounter";
@@ -15,8 +15,8 @@ interface HostDeviceCardProps {
 
 export const HostDeviceCard: React.FC<HostDeviceCardProps> = ({ device, stats, onRenamed }) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [nameInput, setNameInput] = useState(device?.device_name || "This PC (ARPON)");
-  const [displayName, setDisplayName] = useState(device?.device_name || "This PC (ARPON)");
+  const [nameInput, setNameInput] = useState(device?.device_name || "This PC (Host)");
+  const [displayName, setDisplayName] = useState(device?.device_name || "This PC (Host)");
 
   const handleSaveName = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -37,7 +37,6 @@ export const HostDeviceCard: React.FC<HostDeviceCardProps> = ({ device, stats, o
     setIsEditing(false);
   };
 
-  // Compute live scores and counts with fallback to stats
   const totalCount =
     (device?.current_total_count && device.current_total_count > 0)
       ? device.current_total_count
@@ -66,156 +65,158 @@ export const HostDeviceCard: React.FC<HostDeviceCardProps> = ({ device, stats, o
   const vendorName = device?.vendor || "Liteon Technology Corporation";
 
   return (
-    <div className="rounded-2xl radar-panel p-6 lg:p-7 relative font-sans shadow-md border border-slate-300/80 dark:border-white/[0.08]">
-      {/* Top Header Tag */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-slate-200 dark:border-white/[0.06]">
+    <div className="rounded-3xl glass-card p-6 sm:p-8 relative transition-all duration-300">
+      {/* Top Meta Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-6 border-b border-slate-200/80 dark:border-white/[0.06]">
         <div className="flex items-center gap-2.5">
-          <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-[11.5px] font-mono font-bold text-slate-800 dark:text-slate-200 tracking-wider uppercase">
-            MONITORED HOST DEVICE • LIVE SNI INSPECTION ACTIVE
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+          </span>
+          <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+            Local Host Device • Continuous SNI Stream
           </span>
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-cyan-100 dark:bg-cyan-500/10 text-cyan-900 dark:text-cyan-300 border border-cyan-400 dark:border-cyan-500/30 flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-cyan-500" />
-            INTERFACE: {ipAddress}
+          <span className="px-3 py-1 rounded-full text-xs font-medium bg-slate-100 dark:bg-white/[0.05] text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-white/[0.06]">
+            Interface IP: <span className="font-mono font-semibold text-slate-900 dark:text-white">{ipAddress}</span>
           </span>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-5 items-center">
-        {/* Left Column: Device Identity & Specs (7 cols) */}
-        <div className="lg:col-span-7 space-y-4">
+      {/* Main Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pt-6 items-center">
+        {/* Left Column: Device Identity & Specs */}
+        <div className="lg:col-span-7 space-y-6">
           <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-700 dark:text-cyan-400 flex-shrink-0 shadow-sm">
-              <Laptop className="w-6 h-6" />
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-500/15 to-purple-500/15 border border-indigo-500/25 flex items-center justify-center text-indigo-600 dark:text-indigo-400 flex-shrink-0 shadow-sm">
+              <Laptop className="w-7 h-7" />
             </div>
 
             <div className="flex-1 min-w-0">
               {isEditing ? (
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-2">
                   <input
                     type="text"
                     value={nameInput}
                     onChange={(e) => setNameInput(e.target.value)}
-                    className="px-2.5 py-1 rounded-lg bg-white dark:bg-black/70 border border-cyan-500 text-sm text-slate-900 dark:text-white font-bold focus:outline-none w-full font-mono"
+                    className="px-3 py-1.5 rounded-xl bg-white dark:bg-black/60 border border-indigo-500 text-base text-slate-900 dark:text-white font-bold focus:outline-none w-full max-w-sm"
                     autoFocus
                   />
                   <button
                     onClick={handleSaveName}
-                    className="p-1.5 rounded bg-cyan-100 dark:bg-cyan-500/20 text-cyan-800 dark:text-cyan-300 hover:bg-cyan-200"
+                    className="p-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm"
                     title="Save name"
                   >
-                    <Check className="w-3.5 h-3.5" />
+                    <Check className="w-4 h-4" />
                   </button>
                   <button
                     onClick={handleCancelEdit}
-                    className="p-1.5 rounded bg-slate-200 dark:bg-white/[0.05] text-slate-700 dark:text-slate-400"
+                    className="p-2 rounded-xl bg-slate-200 dark:bg-white/[0.08] text-slate-700 dark:text-slate-300"
                     title="Cancel"
                   >
-                    <X className="w-3.5 h-3.5" />
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
               ) : (
-                <div className="flex items-center gap-2 group/title">
-                  <h2 className="text-xl font-black text-slate-900 dark:text-white font-hud tracking-tight truncate">
+                <div className="flex items-center gap-2.5 group/title">
+                  <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white font-heading tracking-tight truncate">
                     {displayName}
                   </h2>
                   {device && (
                     <button
                       onClick={() => setIsEditing(true)}
-                      className="p-1 text-slate-400 hover:text-cyan-600 opacity-80 group-hover/title:opacity-100 transition-opacity"
+                      className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 opacity-60 group-hover/title:opacity-100 transition-opacity rounded-lg hover:bg-slate-100 dark:hover:bg-white/[0.05]"
                       title="Rename device"
                     >
-                      <Edit2 className="w-3.5 h-3.5" />
+                      <Edit2 className="w-4 h-4" />
                     </button>
                   )}
                 </div>
               )}
 
-              <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 mt-0.5">
+              <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">
                 {vendorName}
               </p>
             </div>
           </div>
 
           {/* Quick Specs Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-1">
-            <div className="p-3 rounded-xl bg-slate-100/80 dark:bg-white/[0.02] border border-slate-200 dark:border-white/[0.04]">
-              <span className="text-[10px] uppercase font-bold text-slate-600 dark:text-slate-400 block font-mono">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+            <div className="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-white/[0.02] border border-slate-200/70 dark:border-white/[0.05]">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 block">
                 IP Address
               </span>
-              <p className="text-xs font-mono text-cyan-800 dark:text-cyan-300 mt-0.5 font-bold">
+              <p className="text-sm font-mono font-bold text-slate-900 dark:text-white mt-1">
                 {ipAddress}
               </p>
             </div>
 
-            <div className="p-3 rounded-xl bg-slate-100/80 dark:bg-white/[0.02] border border-slate-200 dark:border-white/[0.04]">
-              <span className="text-[10px] uppercase font-bold text-slate-600 dark:text-slate-400 block font-mono">
+            <div className="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-white/[0.02] border border-slate-200/70 dark:border-white/[0.05]">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 block">
                 MAC Address
               </span>
-              <p className="text-xs font-mono text-slate-900 dark:text-slate-200 mt-0.5 truncate font-bold">
+              <p className="text-sm font-mono font-bold text-slate-900 dark:text-white mt-1 truncate">
                 {macAddress}
               </p>
             </div>
 
-            <div className="p-3 rounded-xl bg-slate-100/80 dark:bg-white/[0.02] border border-slate-200 dark:border-white/[0.04] col-span-2 sm:col-span-1">
-              <span className="text-[10px] uppercase font-bold text-slate-600 dark:text-slate-400 block font-mono">
-                Sniffing Mode
+            <div className="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-white/[0.02] border border-slate-200/70 dark:border-white/[0.05]">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 block">
+                Inspection Mode
               </span>
-              <p className="text-xs font-mono text-emerald-700 dark:text-emerald-400 mt-0.5 font-bold flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                Zero-Decryption SNI
+              <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 mt-1 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                Zero-Decryption
               </p>
             </div>
           </div>
 
-          {/* View Details Link */}
-          <div className="pt-1">
+          {/* Deep Details Action */}
+          <div className="pt-2">
             <Link
               href={`/devices/${encodeURIComponent(macAddress)}`}
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-cyan-800 dark:text-cyan-300 hover:text-black dark:hover:text-white font-mono transition-colors group"
+              className="inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors group"
             >
-              <span>View Deep Telemetry & Connection Logs</span>
-              <ArrowRight className="w-3.5 h-3.5 transform group-hover:translate-x-1 transition-transform" />
+              <span>View Connection Logs & Telemetry History</span>
+              <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" />
             </Link>
           </div>
         </div>
 
-        {/* Right Column: Speedometer Score Gauge & Quick Metrics (5 cols) */}
-        <div className="lg:col-span-5 flex flex-col sm:flex-row items-center justify-around gap-6 p-4 rounded-xl bg-slate-50 dark:bg-black/30 border border-slate-200 dark:border-white/[0.04]">
+        {/* Right Column: Score Gauge & Metrics Card */}
+        <div className="lg:col-span-5 p-6 rounded-2xl bg-slate-50/80 dark:bg-black/20 border border-slate-200/80 dark:border-white/[0.04] flex flex-col sm:flex-row items-center justify-around gap-6">
           <div className="flex flex-col items-center justify-center">
-            <ScoreGauge score={score} size={135} showLabel={true} />
+            <ScoreGauge score={score} size={150} showLabel={true} />
           </div>
 
-          <div className="space-y-3 font-mono text-xs w-full sm:w-auto">
+          <div className="space-y-4 text-sm w-full sm:w-auto">
             <div>
-              <span className="text-[10px] uppercase font-bold text-slate-600 dark:text-slate-400 block">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 block uppercase tracking-wider">
                 Total Handshakes
               </span>
-              <span className="text-base font-black text-slate-900 dark:text-white font-hud">
+              <span className="text-xl font-extrabold text-slate-900 dark:text-white font-heading">
                 <AnimatedCounter value={totalCount} />
               </span>
             </div>
 
             <div>
-              <span className="text-[10px] uppercase font-bold text-slate-600 dark:text-slate-400 block">
-                Telemetry & Ads
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 block uppercase tracking-wider">
+                Tracker & Ad Calls
               </span>
-              <span className="text-sm font-bold text-rose-700 dark:text-rose-400">
-                <AnimatedCounter value={trackerCount} /> queries ({trackerPercentNum.toFixed(1)}%)
+              <span className="text-base font-bold text-rose-600 dark:text-rose-400">
+                <AnimatedCounter value={trackerCount} /> ({trackerPercentNum.toFixed(1)}%)
               </span>
             </div>
 
             <div>
-              <span className="text-[10px] uppercase font-bold text-slate-600 dark:text-slate-400 block">
-                Safety Status
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 block uppercase tracking-wider">
+                Status
               </span>
-              <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5" />
-                {score >= 80 ? "Nominal Privacy" : "Exposure Detected"}
+              <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 mt-0.5">
+                <ShieldCheck className="w-4 h-4" />
+                {score >= 80 ? "Optimal Privacy" : "Elevated Risk"}
               </span>
             </div>
           </div>

@@ -11,7 +11,7 @@ interface ScoreGaugeProps {
 
 export const ScoreGauge: React.FC<ScoreGaugeProps> = ({
   score = 100,
-  size = 130,
+  size = 140,
   showLabel = true,
   showNeedle = true,
 }) => {
@@ -19,18 +19,16 @@ export const ScoreGauge: React.FC<ScoreGaugeProps> = ({
   const [currentScore, setCurrentScore] = useState<number>(safeScore);
 
   useEffect(() => {
-    // Smooth ignition sweep-and-settle:
-    // Fast peak to 98% then settle to safeScore
-    setCurrentScore(98);
+    setCurrentScore(95);
     const settleTimer = setTimeout(() => {
       setCurrentScore(safeScore);
-    }, 200);
+    }, 180);
 
     return () => clearTimeout(settleTimer);
   }, [safeScore]);
 
-  // Semicircle geometry (180 degree arc: from -180deg to 0deg)
-  const strokeWidth = Math.max(5, Math.round(size * 0.08));
+  // Semicircle geometry
+  const strokeWidth = Math.max(7, Math.round(size * 0.08));
   const radius = (size - strokeWidth * 2) / 2;
   const arcLength = Math.PI * radius;
   const progressOffset = arcLength * (1 - currentScore / 100);
@@ -38,34 +36,33 @@ export const ScoreGauge: React.FC<ScoreGaugeProps> = ({
   // Needle angle: 0 score = -180 deg, 100 score = 0 deg
   const needleAngle = -180 + (currentScore / 100) * 180;
 
-  // Determine active zone color based on true score (high contrast in both modes)
   const getTheme = (s: number) => {
     if (s >= 80) {
       return {
-        color: "#16a34a",
-        text: "text-emerald-700 dark:text-emerald-400",
-        bgBadge: "bg-emerald-100 dark:bg-emerald-500/10 border-emerald-300 dark:border-emerald-500/30",
-        label: "STRONG PRIVACY",
+        color: "#22c55e",
+        text: "text-emerald-600 dark:text-emerald-400",
+        bgBadge: "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/20",
+        label: "Optimal Privacy",
       };
     }
     if (s >= 50) {
       return {
-        color: "#d97706",
-        text: "text-amber-700 dark:text-amber-400",
-        bgBadge: "bg-amber-100 dark:bg-amber-500/10 border-amber-300 dark:border-amber-500/30",
-        label: "MODERATE RISK",
+        color: "#f59e0b",
+        text: "text-amber-600 dark:text-amber-400",
+        bgBadge: "bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/20",
+        label: "Moderate Exposure",
       };
     }
     return {
-      color: "#dc2626",
-      text: "text-red-700 dark:text-red-400",
-      bgBadge: "bg-red-100 dark:bg-red-500/10 border-red-300 dark:border-red-500/30",
-      label: "HIGH EXPOSURE",
+      color: "#ef4444",
+      text: "text-rose-600 dark:text-rose-400",
+      bgBadge: "bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-500/20",
+      label: "High Risk",
     };
   };
 
   const theme = getTheme(safeScore);
-  const height = size * 0.64;
+  const height = size * 0.65;
   const centerX = size / 2;
   const centerY = size / 2 + strokeWidth;
 
@@ -80,8 +77,8 @@ export const ScoreGauge: React.FC<ScoreGaugeProps> = ({
         >
           <defs>
             <linearGradient id={`gauge-grad-${size}`} x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#ef4444" />
-              <stop offset="50%" stopColor="#f59e0b" />
+              <stop offset="0%" stopColor="#f43f5e" />
+              <stop offset="45%" stopColor="#fbbf24" />
               <stop offset="100%" stopColor="#10b981" />
             </linearGradient>
           </defs>
@@ -91,7 +88,7 @@ export const ScoreGauge: React.FC<ScoreGaugeProps> = ({
             d={`M ${centerX - radius} ${centerY} A ${radius} ${radius} 0 0 1 ${centerX + radius} ${centerY}`}
             fill="none"
             stroke="currentColor"
-            className="text-slate-300 dark:text-white/[0.1]"
+            className="text-slate-200 dark:text-white/[0.08]"
             strokeWidth={strokeWidth}
             strokeLinecap="round"
           />
@@ -106,7 +103,7 @@ export const ScoreGauge: React.FC<ScoreGaugeProps> = ({
             strokeDasharray={arcLength}
             strokeDashoffset={progressOffset}
             style={{
-              transition: "stroke-dashoffset 0.5s ease-out",
+              transition: "stroke-dashoffset 0.6s cubic-bezier(0.16, 1, 0.3, 1)",
             }}
           />
 
@@ -114,25 +111,25 @@ export const ScoreGauge: React.FC<ScoreGaugeProps> = ({
           {showNeedle && (
             <g
               transform={`translate(${centerX}, ${centerY}) rotate(${needleAngle})`}
-              style={{ transition: "transform 0.5s ease-out" }}
+              style={{ transition: "transform 0.6s cubic-bezier(0.16, 1, 0.3, 1)" }}
             >
               <line
                 x1="0"
                 y1="0"
-                x2={radius - 3}
+                x2={radius - 4}
                 y2="0"
                 stroke={theme.color}
-                strokeWidth={Math.max(2, Math.round(size * 0.025))}
+                strokeWidth={Math.max(2.5, Math.round(size * 0.025))}
                 strokeLinecap="round"
               />
               <circle
                 cx="0"
                 cy="0"
-                r={Math.max(3.5, strokeWidth * 0.45)}
+                r={Math.max(4, strokeWidth * 0.45)}
                 fill="currentColor"
-                className="text-white dark:text-[#090c12]"
+                className="text-white dark:text-[#10131e]"
                 stroke={theme.color}
-                strokeWidth="2"
+                strokeWidth="2.5"
               />
             </g>
           )}
@@ -141,23 +138,23 @@ export const ScoreGauge: React.FC<ScoreGaugeProps> = ({
         {/* Numeric Score Center Readout */}
         <div
           className="absolute inset-0 flex flex-col items-center justify-end pointer-events-none"
-          style={{ bottom: "0px" }}
+          style={{ bottom: "2px" }}
         >
           <span
-            className={`font-black font-hud tracking-tight leading-none ${theme.text}`}
-            style={{ fontSize: `${Math.max(16, Math.round(size * 0.24))}px` }}
+            className={`font-extrabold font-heading tracking-tight leading-none ${theme.text}`}
+            style={{ fontSize: `${Math.max(20, Math.round(size * 0.26))}px` }}
           >
             {safeScore}
           </span>
-          <span className="text-[9px] font-mono text-slate-600 dark:text-slate-400 font-bold uppercase tracking-widest mt-0.5">
-            /100
+          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mt-0.5">
+            / 100
           </span>
         </div>
       </div>
 
       {showLabel && (
         <span
-          className={`mt-1.5 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold border ${theme.bgBadge} ${theme.text} uppercase tracking-wider`}
+          className={`mt-2 px-3 py-1 rounded-full text-xs font-semibold border ${theme.bgBadge} transition-all`}
         >
           {theme.label}
         </span>

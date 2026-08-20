@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { Radio, Filter, Pause, Play, Ban, ShieldAlert, Shield, Info, Terminal, ChevronRight } from "lucide-react";
+import { Radio, Filter, Pause, Play, Ban, ShieldAlert, Shield, Info, Activity, ChevronRight, Check } from "lucide-react";
 import {
   ConnectionEvent,
   createLiveWebSocket,
@@ -17,34 +17,34 @@ import { DomainDetailModal } from "./DomainDetailModal";
 
 const categoryConfig: Record<string, { dot: string; label: string; text: string; bg: string }> = {
   tracker: {
-    dot: "bg-red-600 dark:bg-red-400",
-    label: "TRACKER",
-    text: "text-red-800 dark:text-red-400 font-bold",
-    bg: "bg-red-100 dark:bg-red-500/10 border-red-300 dark:border-red-500/20",
+    dot: "bg-red-500",
+    label: "Tracker",
+    text: "text-red-700 dark:text-red-300 font-semibold",
+    bg: "bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20",
   },
   ad_network: {
-    dot: "bg-amber-600 dark:bg-amber-400",
-    label: "AD_NETWORK",
-    text: "text-amber-800 dark:text-amber-400 font-bold",
-    bg: "bg-amber-100 dark:bg-amber-500/10 border-amber-300 dark:border-amber-500/20",
+    dot: "bg-amber-500",
+    label: "Ad Network",
+    text: "text-amber-700 dark:text-amber-300 font-semibold",
+    bg: "bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20",
   },
   malicious: {
-    dot: "bg-rose-700 dark:bg-rose-500",
-    label: "MALICIOUS",
-    text: "text-rose-900 dark:text-rose-400 font-black",
-    bg: "bg-rose-100 dark:bg-rose-500/15 border-rose-400 dark:border-rose-500/30",
+    dot: "bg-rose-500",
+    label: "Flagged Threat",
+    text: "text-rose-700 dark:text-rose-300 font-bold",
+    bg: "bg-rose-50 dark:bg-rose-500/15 border-rose-200 dark:border-rose-500/30",
   },
   first_party: {
-    dot: "bg-emerald-600 dark:bg-emerald-400",
-    label: "1ST_PARTY",
-    text: "text-emerald-800 dark:text-emerald-400 font-bold",
-    bg: "bg-emerald-100 dark:bg-emerald-500/10 border-emerald-300 dark:border-emerald-500/20",
+    dot: "bg-emerald-500",
+    label: "First Party",
+    text: "text-emerald-700 dark:text-emerald-300 font-semibold",
+    bg: "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20",
   },
   unknown: {
-    dot: "bg-slate-600 dark:bg-slate-500",
-    label: "UNKNOWN",
-    text: "text-slate-700 dark:text-slate-400 font-semibold",
-    bg: "bg-slate-200 dark:bg-slate-500/10 border-slate-300 dark:border-slate-500/20",
+    dot: "bg-slate-400",
+    label: "Unclassified",
+    text: "text-slate-600 dark:text-slate-400 font-medium",
+    bg: "bg-slate-100 dark:bg-slate-500/10 border-slate-200 dark:border-slate-500/20",
   },
 };
 
@@ -107,7 +107,7 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({ onEventsUpdate }) => {
   const handleDomainBlocked = () => {
     if (blockModalDomain) {
       setBlockedSet((prev) => new Set([...prev, blockModalDomain.domain.toLowerCase()]));
-      setNotification(`[BLOCKED] Domain ${blockModalDomain.domain} successfully blocked!`);
+      setNotification(`Domain ${blockModalDomain.domain} successfully blocked!`);
       setTimeout(() => setNotification(null), 3500);
     }
   };
@@ -115,7 +115,7 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({ onEventsUpdate }) => {
   const handleAllowRule = async (domain: string) => {
     const ok = await addCustomRule(domain, "allow", "first_party");
     if (ok) {
-      setNotification(`[ALLOW RULE APPLIED] ${domain}`);
+      setNotification(`Allow rule applied for ${domain}`);
       setTimeout(() => setNotification(null), 3000);
     }
   };
@@ -150,21 +150,26 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({ onEventsUpdate }) => {
   });
 
   return (
-    <div className="rounded-2xl radar-panel p-5 flex flex-col h-[650px] relative font-mono">
-      {/* Terminal Bar Header */}
-      <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-white/[0.06]">
-        <div className="flex items-center gap-2.5">
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+    <div className="rounded-3xl glass-card p-6 sm:p-7 flex flex-col h-[680px] relative transition-all duration-300">
+      {/* Header Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-200/80 dark:border-white/[0.06]">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 dark:bg-indigo-500/20 border border-indigo-500/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+            <Activity className="w-5 h-5" />
           </div>
-          <div className="flex items-center gap-1.5 text-xs">
-            <Terminal className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-            <span className="font-bold text-slate-900 dark:text-white font-hud tracking-wide">TERMINAL LIVE RADAR FEED</span>
-            <span className="text-[10px] text-cyan-700 dark:text-cyan-400 font-bold hidden sm:inline">
-              [glasshouse@radar:~$ sni-stream]
-            </span>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white font-heading">
+                Live Outbound Handshakes
+              </h3>
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Real-time TLS ClientHello SNI stream from this machine
+            </p>
           </div>
         </div>
 
@@ -173,46 +178,45 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({ onEventsUpdate }) => {
           {isUserScrolled && (
             <button
               onClick={scrollToTop}
-              className="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-100 dark:bg-cyan-500/20 text-cyan-800 dark:text-cyan-300 border border-cyan-400 dark:border-cyan-500/30 transition-all shadow-sm"
-              title="Jump to latest captured connection"
+              className="px-3 py-1.5 rounded-full text-xs font-semibold bg-indigo-50 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30 hover:bg-indigo-100 dark:hover:bg-indigo-500/25 transition-all shadow-sm"
+              title="Jump to latest handshake"
             >
-              ↑ NEWEST
+              ↑ Newest
             </button>
           )}
 
           <button
             onClick={() => setIsPaused(!isPaused)}
-            className={`p-1.5 rounded-lg border text-xs flex items-center gap-1 font-mono font-bold transition-all ${
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all border ${
               isPaused
-                ? "bg-amber-100 dark:bg-amber-500/20 text-amber-900 dark:text-amber-300 border-amber-400 dark:border-amber-500/30"
-                : "bg-slate-100 dark:bg-white/[0.03] text-slate-700 dark:text-slate-400 border-slate-300 dark:border-white/[0.06] hover:text-black dark:hover:text-white"
+                ? "bg-amber-50 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-500/30"
+                : "bg-slate-100 dark:bg-white/[0.04] text-slate-700 dark:text-slate-300 border-slate-200/80 dark:border-white/[0.06] hover:bg-slate-200 dark:hover:bg-white/[0.08]"
             }`}
-            title={isPaused ? "Resume real-time stream" : "Pause feed stream"}
+            title={isPaused ? "Resume live stream" : "Pause live stream"}
           >
-            {isPaused ? <Play className="w-3 h-3 text-amber-700 dark:text-amber-400" /> : <Pause className="w-3 h-3" />}
-            <span className="text-[10px] hidden sm:inline">{isPaused ? "RESUME" : "PAUSE"}</span>
+            {isPaused ? <Play className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" /> : <Pause className="w-3.5 h-3.5" />}
+            <span>{isPaused ? "Resume Stream" : "Pause"}</span>
           </button>
         </div>
       </div>
 
       {/* Filter Tabs Bar */}
-      <div className="flex items-center justify-between py-2 border-b border-slate-200 dark:border-white/[0.04] text-xs overflow-x-auto gap-2">
-        <div className="flex items-center gap-1">
-          <Filter className="w-3 h-3 text-slate-500 mr-1" />
+      <div className="flex items-center justify-between py-3 border-b border-slate-200/60 dark:border-white/[0.04] text-xs overflow-x-auto gap-3">
+        <div className="flex items-center gap-1.5">
           {[
-            { id: "all", label: "ALL" },
-            { id: "threats", label: "THREATS" },
-            { id: "trackers", label: "TRACKERS & ADS" },
-            { id: "first_party", label: "FIRST PARTY" },
-            { id: "unknown", label: "UNKNOWN" },
+            { id: "all", label: "All Handshakes" },
+            { id: "threats", label: "Flagged Threats" },
+            { id: "trackers", label: "Trackers & Ads" },
+            { id: "first_party", label: "First Party" },
+            { id: "unknown", label: "Unclassified" },
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setFilter(tab.id)}
-              className={`px-2.5 py-1 rounded text-[10px] font-bold tracking-wider transition-all whitespace-nowrap ${
+              className={`px-3 py-1 rounded-full text-xs font-semibold transition-all whitespace-nowrap ${
                 filter === tab.id
-                  ? "bg-cyan-100 dark:bg-cyan-500/15 text-cyan-900 dark:text-cyan-300 border border-cyan-400 dark:border-cyan-500/30 font-extrabold shadow-sm"
-                  : "text-slate-700 dark:text-slate-400 hover:text-black dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.03]"
+                  ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-sm"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.04]"
               }`}
             >
               {tab.label}
@@ -224,28 +228,30 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({ onEventsUpdate }) => {
 
       {/* Action Notification */}
       {notification && (
-        <div className="my-2 py-1 px-3 rounded bg-cyan-100 dark:bg-cyan-500/10 border border-cyan-300 dark:border-cyan-500/20 text-cyan-900 dark:text-cyan-300 text-[11px] text-center font-mono font-bold">
+        <div className="my-2 py-2 px-4 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 text-indigo-700 dark:text-indigo-300 text-xs text-center font-medium animate-count">
           {notification}
         </div>
       )}
 
       {/* Paused Banner */}
       {isPaused && (
-        <div className="py-1 px-3 mb-2 rounded bg-amber-100 dark:bg-amber-500/10 border border-amber-300 dark:border-amber-500/20 text-amber-900 dark:text-amber-300 text-[10px] flex items-center justify-center gap-1.5 font-bold">
-          <Pause className="w-3 h-3" />
-          <span>FEED PAUSED — CAPTURED EVENTS QUEUED IN BUFFER</span>
+        <div className="py-2 px-4 mb-2 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-amber-700 dark:text-amber-300 text-xs flex items-center justify-center gap-2 font-medium">
+          <Pause className="w-3.5 h-3.5" />
+          <span>Stream paused — captured events queued in memory</span>
         </div>
       )}
 
-      {/* Terminal Log Stream Area */}
+      {/* Live Stream List */}
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto divide-y divide-slate-200/80 dark:divide-white/[0.03] pr-1 space-y-1 mt-1 font-mono text-[11px]"
+        className="flex-1 overflow-y-auto divide-y divide-slate-100 dark:divide-white/[0.03] pr-1 space-y-1 mt-2 text-sm"
       >
         {filteredEvents.length === 0 ? (
-          <div className="py-20 text-center text-slate-600 dark:text-slate-400 text-xs">
-            <span className="text-cyan-700 dark:text-cyan-400 font-bold">[RADAR STANDBY]</span> Waiting for TLS ClientHello packets...
+          <div className="py-28 text-center text-slate-500 dark:text-slate-400 text-sm space-y-2">
+            <Activity className="w-8 h-8 text-slate-400 mx-auto opacity-50 animate-pulse" />
+            <p className="font-semibold text-slate-700 dark:text-slate-300">Listening for outbound TLS connections...</p>
+            <p className="text-xs text-slate-400">Open a website or application to watch handshakes stream live</p>
           </div>
         ) : (
           filteredEvents.map((ev, idx) => {
@@ -260,16 +266,16 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({ onEventsUpdate }) => {
             return (
               <div
                 key={ev.id || `${ev.sni_domain}-${idx}`}
-                className="py-2 px-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/[0.03] transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-2 group"
+                className="py-3 px-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
               >
-                {/* Terminal Log Content */}
-                <div className="flex items-start sm:items-center gap-2 min-w-0 flex-1">
-                  <span className="text-slate-600 dark:text-slate-400 text-[10px] font-semibold flex-shrink-0">
-                    [{timeStr}]
+                {/* Domain & Category */}
+                <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
+                  <span className="text-slate-400 dark:text-slate-500 text-xs font-mono flex-shrink-0 pt-0.5 sm:pt-0">
+                    {timeStr}
                   </span>
 
                   <span
-                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold border flex-shrink-0 ${cat.bg} ${cat.text}`}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border flex-shrink-0 ${cat.bg} ${cat.text}`}
                   >
                     <span className={`w-1.5 h-1.5 rounded-full ${cat.dot}`} />
                     {cat.label}
@@ -277,45 +283,45 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({ onEventsUpdate }) => {
 
                   <button
                     onClick={() => setDetailDomain({ domain: ev.sni_domain, category: ev.classification })}
-                    className="font-bold text-slate-900 dark:text-slate-100 hover:text-cyan-700 dark:hover:text-cyan-300 truncate text-left transition-colors cursor-pointer group-hover:underline"
-                    title="Click for domain telemetry & WHOIS intel"
+                    className="font-semibold text-slate-900 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-indigo-400 truncate text-left transition-colors cursor-pointer"
+                    title="Click for WHOIS, TLS certificate, and threat intelligence details"
                   >
                     {ev.sni_domain}
                   </button>
 
-                  <span className="text-slate-500 dark:text-slate-500 text-[10px] hidden md:inline">
+                  <span className="text-slate-400 dark:text-slate-500 text-xs font-mono hidden md:inline truncate">
                     → {ev.destination_ip || ev.dst_ip || "WAN"}
                   </span>
                 </div>
 
                 {/* Right Metadata & Action Buttons */}
-                <div className="flex items-center gap-1.5 flex-shrink-0 self-end sm:self-auto">
+                <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-auto">
                   {ev.threat_vendors && ev.threat_vendors > 0 ? (
-                    <span className="px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-500/20 border border-rose-300 dark:border-rose-500/30 text-rose-800 dark:text-rose-300 text-[9px] font-bold flex items-center gap-1">
-                      <ShieldAlert className="w-2.5 h-2.5" />
-                      {ev.threat_vendors} FLAGS
+                    <span className="px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-500/20 border border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs font-semibold flex items-center gap-1">
+                      <ShieldAlert className="w-3 h-3" />
+                      {ev.threat_vendors} Vendor Flags
                     </span>
                   ) : null}
 
                   {isBlocked ? (
-                    <span className="px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-500/20 text-rose-800 dark:text-rose-400 border border-rose-300 dark:border-rose-500/30 text-[9px] font-bold">
-                      BLOCKED
+                    <span className="px-2.5 py-0.5 rounded-full bg-rose-50 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-500/30 text-xs font-semibold">
+                      Blocked
                     </span>
                   ) : (
-                    <div className="flex items-center gap-1 opacity-90 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={() => handleAllowRule(ev.sni_domain)}
-                        className="px-2 py-0.5 rounded bg-emerald-50 dark:bg-white/[0.03] hover:bg-emerald-100 dark:hover:bg-emerald-500/15 text-emerald-800 dark:text-slate-400 hover:text-emerald-900 dark:hover:text-emerald-300 border border-emerald-300 dark:border-white/[0.06] text-[9px] font-bold transition-all"
+                        className="px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-white/[0.04] hover:bg-emerald-50 dark:hover:bg-emerald-500/20 text-slate-600 dark:text-slate-400 hover:text-emerald-700 dark:hover:text-emerald-300 border border-slate-200/80 dark:border-white/[0.06] text-xs font-medium transition-all"
                         title="Allow domain override"
                       >
-                        [ALLOW]
+                        Allow
                       </button>
                       <button
                         onClick={() => setBlockModalDomain({ domain: ev.sni_domain, category: ev.classification })}
-                        className="px-2 py-0.5 rounded bg-red-50 dark:bg-white/[0.03] hover:bg-red-100 dark:hover:bg-red-500/15 text-red-800 dark:text-slate-400 hover:text-red-900 dark:hover:text-red-400 border border-red-300 dark:border-white/[0.06] text-[9px] font-bold transition-all"
+                        className="px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-white/[0.04] hover:bg-rose-50 dark:hover:bg-rose-500/20 text-slate-600 dark:text-slate-400 hover:text-rose-700 dark:hover:text-rose-300 border border-slate-200/80 dark:border-white/[0.06] text-xs font-medium transition-all"
                         title="Block domain"
                       >
-                        [BLOCK]
+                        Block
                       </button>
                     </div>
                   )}
