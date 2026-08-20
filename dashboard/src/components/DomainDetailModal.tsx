@@ -14,7 +14,7 @@ import {
   Sparkles,
   AlertTriangle,
   Radio,
-  Terminal,
+  CheckCircle2,
 } from "lucide-react";
 import { DomainEnrichment, fetchDomainEnrichment } from "@/lib/api";
 
@@ -59,25 +59,25 @@ export const DomainDetailModal: React.FC<DomainDetailModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md font-mono">
-      <div className="relative w-full max-w-lg rounded-2xl radar-panel p-6 shadow-2xl shadow-black space-y-6 max-h-[90vh] overflow-y-auto border border-cyan-500/30">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/80 backdrop-blur-md font-sans">
+      <div className="relative w-full max-w-lg rounded-3xl glass-card bg-white/95 dark:bg-[#10131e]/95 p-6 sm:p-7 shadow-2xl shadow-black/20 dark:shadow-black/70 space-y-6 max-h-[90vh] overflow-y-auto border border-slate-200/80 dark:border-white/[0.08]">
         {/* Header */}
         <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3.5">
             <div
-              className={`w-11 h-11 rounded-2xl flex items-center justify-center border shadow-lg ${
+              className={`w-12 h-12 rounded-2xl flex items-center justify-center border shadow-sm ${
                 isMalicious
-                  ? "bg-rose-500/10 border-rose-500/30 text-rose-400 shadow-[0_0_12px_rgba(244,63,94,0.3)]"
-                  : "bg-cyan-500/10 border-cyan-500/30 text-cyan-400 shadow-[0_0_12px_rgba(6,182,212,0.2)]"
+                  ? "bg-rose-50 dark:bg-rose-500/15 border-rose-200 dark:border-rose-500/30 text-rose-600 dark:text-rose-400"
+                  : "bg-indigo-50 dark:bg-indigo-500/15 border-indigo-200 dark:border-indigo-500/30 text-indigo-600 dark:text-indigo-400"
               }`}
             >
               {isMalicious ? <ShieldAlert className="w-6 h-6" /> : <Globe className="w-6 h-6" />}
             </div>
             <div className="space-y-0.5">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                DOMAIN SURVEILLANCE PROFILE
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                Domain Intelligence Profile
               </span>
-              <h3 className="text-base font-bold text-white tracking-tight break-all font-hud">
+              <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white font-heading break-all">
                 {domain}
               </h3>
             </div>
@@ -85,7 +85,7 @@ export const DomainDetailModal: React.FC<DomainDetailModalProps> = ({
 
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.05] transition-colors"
+            className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -93,11 +93,11 @@ export const DomainDetailModal: React.FC<DomainDetailModalProps> = ({
 
         {/* Security Warning Alert */}
         {isMalicious && (
-          <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-start gap-3">
-            <ShieldAlert className="w-5 h-5 flex-shrink-0 mt-0.5 text-rose-400" />
-            <div className="space-y-1 font-sans">
-              <p className="font-bold text-rose-200">Flagged Threat Alert</p>
-              <p className="text-[11px] text-rose-300/80 leading-relaxed font-mono">
+          <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-rose-700 dark:text-rose-300 text-xs flex items-start gap-3">
+            <ShieldAlert className="w-5 h-5 flex-shrink-0 mt-0.5 text-rose-600 dark:text-rose-400" />
+            <div className="space-y-1">
+              <p className="font-bold text-rose-900 dark:text-rose-200">Flagged Threat Alert</p>
+              <p className="text-rose-700 dark:text-rose-300/80 leading-relaxed">
                 {enrichment?.threat_details ||
                   `Domain flagged by ${enrichment?.threat_vendors || "multiple"} security vendors as suspicious or malicious.`}
               </p>
@@ -107,24 +107,24 @@ export const DomainDetailModal: React.FC<DomainDetailModalProps> = ({
 
         {/* Newly Registered Domain Warning */}
         {isNewDomain && (
-          <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs flex items-start gap-2.5">
-            <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5 text-amber-400" />
-            <div className="space-y-0.5 font-sans">
-              <p className="font-semibold text-amber-200">Newly Registered Domain</p>
-              <p className="text-[11px] text-amber-300/80 font-mono">
-                Registered less than 90 days ago. High risk of newly deployed tracker / phishing campaign.
+          <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-amber-800 dark:text-amber-300 text-xs flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+            <div className="space-y-1">
+              <p className="font-semibold text-amber-900 dark:text-amber-200">Newly Registered Domain</p>
+              <p className="text-amber-700 dark:text-amber-300/80 leading-relaxed">
+                Domain registered recently (less than 90 days ago). Higher probability of ephemeral ad / tracking infrastructure.
               </p>
             </div>
           </div>
         )}
 
         {/* Quick Intel Stats Grid */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.04] space-y-1">
-            <span className="text-[10px] uppercase font-bold text-slate-500 flex items-center gap-1.5 font-sans">
-              <Calendar className="w-3 h-3 text-cyan-400" /> Domain Age
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-black/30 border border-slate-200/80 dark:border-white/[0.05] space-y-1">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" /> Domain Age
             </span>
-            <p className="text-xs font-bold text-slate-100 font-mono">
+            <p className="text-sm font-bold text-slate-900 dark:text-white">
               {loading
                 ? "Checking WHOIS..."
                 : enrichment?.created_year
@@ -133,64 +133,66 @@ export const DomainDetailModal: React.FC<DomainDetailModalProps> = ({
             </p>
           </div>
 
-          <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.04] space-y-1">
-            <span className="text-[10px] uppercase font-bold text-slate-500 flex items-center gap-1.5 font-sans">
-              <Server className="w-3 h-3 text-cyan-400" /> Infrastructure Host
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-black/30 border border-slate-200/80 dark:border-white/[0.05] space-y-1">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+              <Server className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" /> Infrastructure Host
             </span>
-            <p className="text-xs font-bold text-slate-100 font-mono truncate">
+            <p className="text-sm font-bold text-slate-900 dark:text-white truncate">
               {loading ? "Resolving ASN..." : enrichment?.hosting_provider || "Cloudflare / CDN"}
             </p>
           </div>
 
-          <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.04] space-y-1">
-            <span className="text-[10px] uppercase font-bold text-slate-500 flex items-center gap-1.5 font-sans">
-              <Lock className="w-3 h-3 text-cyan-400" /> SSL / TLS Certificate
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-black/30 border border-slate-200/80 dark:border-white/[0.05] space-y-1">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+              <Lock className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" /> TLS Certificate
             </span>
-            <p className="text-xs font-bold text-slate-100 font-mono truncate">
-              {loading ? "Inspecting cert..." : enrichment?.cert_org || "Let's Encrypt / DigiCert"}
+            <p className="text-sm font-bold text-slate-900 dark:text-white truncate">
+              {loading ? "Inspecting certificate..." : enrichment?.cert_org || "Let's Encrypt / DigiCert"}
             </p>
           </div>
 
-          <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.04] space-y-1">
-            <span className="text-[10px] uppercase font-bold text-slate-500 flex items-center gap-1.5 font-sans">
-              <Shield className="w-3 h-3 text-cyan-400" /> Threat Status
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-black/30 border border-slate-200/80 dark:border-white/[0.05] space-y-1">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+              <Shield className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" /> Threat Status
             </span>
-            <p className="text-xs font-bold font-mono">
+            <p className="text-sm font-bold">
               {enrichment?.threat_vendors && enrichment.threat_vendors > 0 ? (
-                <span className="text-rose-400">{enrichment.threat_vendors} Vendor Flags</span>
+                <span className="text-rose-600 dark:text-rose-400">{enrichment.threat_vendors} Vendor Flags</span>
               ) : (
-                <span className="text-emerald-400">0 Flags (Clean)</span>
+                <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Clean (0 Flags)
+                </span>
               )}
             </p>
           </div>
         </div>
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-between pt-2 border-t border-white/[0.06]">
+        <div className="flex items-center justify-between pt-3 border-t border-slate-200/80 dark:border-white/[0.06]">
           <a
             href={`https://www.virustotal.com/gui/domain/${domain}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-cyan-300 transition-colors font-mono"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
           >
-            <span>VirusTotal Report</span>
+            <span>VirusTotal Analysis</span>
             <ExternalLink className="w-3 h-3" />
           </a>
 
           <div className="flex items-center gap-2">
             <button
               onClick={onClose}
-              className="px-3.5 py-1.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] text-slate-400 hover:text-white text-xs font-bold transition-colors"
+              className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] text-slate-700 dark:text-slate-300 text-xs font-semibold transition-colors"
             >
-              CLOSE
+              Close
             </button>
             {(onBlockRequest || onBlockRequested) && (
               <button
                 onClick={handleBlock}
-                className="px-3.5 py-1.5 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/40 text-xs font-bold flex items-center gap-1.5 transition-all shadow-[0_0_10px_rgba(248,113,113,0.2)]"
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm shadow-rose-500/20"
               >
                 <Ban className="w-3.5 h-3.5" />
-                <span>BLOCK DOMAIN</span>
+                <span>Block Domain</span>
               </button>
             )}
           </div>

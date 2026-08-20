@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { AlertTriangle, Terminal, ExternalLink, ChevronDown, ChevronUp, X, Check, Copy, Shield, Download } from "lucide-react";
+import { Terminal, ExternalLink, ChevronDown, ChevronUp, X, Check, Copy, Shield, Download, Sparkles, HelpCircle } from "lucide-react";
 
 export const DeploymentBanner: React.FC = () => {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -19,107 +19,88 @@ export const DeploymentBanner: React.FC = () => {
   const steps = [
     {
       step: 1,
-      title: "Download & Install Npcap (Windows Driver)",
-      detail: "Npcap is a free Windows packet capture driver that allows Glasshouse to inspect local TLS handshakes. Ensure you check 'Install Npcap in WinPcap API-compatible Mode' during setup.",
-      linkText: "Download Npcap for Windows",
+      title: "Download & Install Npcap",
+      detail: "Free Windows packet capture driver. Enable 'Install Npcap in WinPcap API-compatible Mode' during setup.",
+      linkText: "Download Npcap",
       linkUrl: "https://npcap.com/#download",
       command: null,
     },
     {
       step: 2,
-      title: "Clone the Glasshouse Repository",
-      detail: "Clone the source repository to your computer from GitHub.",
-      linkText: "View GitHub Repository",
-      linkUrl: "https://github.com/arpon-dutta07/glasshouse",
+      title: "Clone Repository",
+      detail: "Clone the source repository to your machine.",
       command: "git clone https://github.com/arpon-dutta07/glasshouse.git\ncd glasshouse",
     },
     {
       step: 3,
       title: "Install Dependencies",
-      detail: "Install Python backend requirements and Next.js frontend packages.",
+      detail: "Install Python backend requirements & frontend packages.",
       command: "pip install -r requirements.txt\ncd dashboard && npm install && cd ..",
     },
     {
       step: 4,
-      title: "Run Backend as Administrator",
-      detail: "Raw socket and network adapter inspection requires elevated Administrator privileges.",
+      title: "Run Backend as Admin",
+      detail: "Raw socket inspection requires elevated permissions.",
       command: "python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000",
     },
     {
       step: 5,
       title: "Launch Dashboard",
-      detail: "Start the Next.js radar dashboard in a terminal and open in your browser.",
+      detail: "Start the Next.js frontend in your terminal.",
       command: "cd dashboard && npm run dev",
     },
   ];
 
   return (
-    <div className="rounded-2xl bg-amber-50 dark:bg-amber-950/25 border-2 border-amber-600/80 dark:border-amber-500/40 p-5 text-xs shadow-md font-sans">
-      <div className="flex items-start justify-between gap-4">
-        {/* Left Warning Icon + Core Explainer */}
-        <div className="flex items-start gap-3.5 flex-1 min-w-0">
-          <div className="w-9 h-9 rounded-xl bg-amber-500/20 dark:bg-amber-500/20 border border-amber-600/40 dark:border-amber-500/40 flex items-center justify-center text-amber-700 dark:text-amber-400 flex-shrink-0 mt-0.5">
-            <AlertTriangle className="w-5 h-5" />
+    <div className="rounded-2xl glass-card border border-indigo-200/60 dark:border-indigo-500/20 bg-gradient-to-r from-indigo-500/[0.04] via-purple-500/[0.02] to-transparent p-4 sm:p-5 transition-all">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        {/* Left Info */}
+        <div className="flex items-start sm:items-center gap-3.5 flex-1 min-w-0">
+          <div className="w-10 h-10 rounded-xl bg-indigo-500/10 dark:bg-indigo-500/20 border border-indigo-500/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400 flex-shrink-0">
+            <Sparkles className="w-5 h-5" />
           </div>
 
-          <div className="space-y-1.5 flex-1">
+          <div className="space-y-0.5 flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-extrabold text-amber-950 dark:text-amber-200 text-sm tracking-tight flex items-center gap-1.5 font-hud">
-                ⚠ BEFORE YOU START — READ THIS
-              </span>
-              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-200 dark:bg-amber-500/20 text-amber-950 dark:text-amber-300 border border-amber-500/40 uppercase">
-                IMPORTANT SETUP NOTICE
+              <h3 className="font-heading font-bold text-sm text-slate-900 dark:text-white">
+                Live Local Network Inspection
+              </h3>
+              <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300">
+                Zero-Decryption SNI
               </span>
             </div>
-
-            <p className="text-slate-900 dark:text-slate-200 leading-relaxed text-[12.5px] font-medium">
-              This dashboard is running a <strong className="text-black dark:text-white font-bold">live inspection demo</strong>. Glasshouse only ever monitors <strong className="text-amber-900 dark:text-amber-300 font-bold">YOUR OWN local network traffic</strong> when its backend runs on your machine — it cannot and never will monitor anything remotely.
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-normal">
+              Passively inspecting outbound TLS handshakes on your machine. All traffic stays private and is processed locally.
             </p>
-
-            <div className="pt-1 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[12px]">
-              <a
-                href="https://npcap.com/#download"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 font-bold text-amber-900 dark:text-amber-300 hover:text-black dark:hover:text-amber-100 underline font-mono"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>1. Download Npcap Driver (npcap.com)</span>
-                <ExternalLink className="w-3 h-3" />
-              </a>
-
-              <span className="text-slate-400 hidden sm:inline">•</span>
-
-              <a
-                href="https://github.com/arpon-dutta07/glasshouse"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 font-bold text-slate-800 dark:text-slate-300 hover:text-black dark:hover:text-white underline font-mono"
-              >
-                <Terminal className="w-3.5 h-3.5" />
-                <span>2. View GitHub Setup Guide</span>
-                <ExternalLink className="w-3 h-3" />
-              </a>
-            </div>
           </div>
         </div>
 
         {/* Right Actions */}
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-auto">
+          <a
+            href="https://npcap.com/#download"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs transition-all shadow-sm shadow-indigo-500/20"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Npcap Driver</span>
+            <ExternalLink className="w-3 h-3 opacity-70" />
+          </a>
+
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-200/90 dark:bg-amber-500/20 hover:bg-amber-300 dark:hover:bg-amber-500/30 border border-amber-600/40 dark:border-amber-500/40 text-amber-950 dark:text-amber-200 font-bold text-xs transition-all cursor-pointer shadow-sm"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.05] dark:hover:bg-white/[0.1] text-slate-700 dark:text-slate-300 font-semibold text-xs transition-all"
           >
             <Terminal className="w-3.5 h-3.5" />
-            <span>Setup Instructions</span>
+            <span>Setup Steps</span>
             {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
           </button>
 
           <button
             onClick={() => setIsDismissed(true)}
-            className="p-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/[0.05] transition-colors"
-            title="Dismiss notice for this session"
-            aria-label="Dismiss banner"
+            className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-colors"
+            title="Dismiss notice"
           >
             <X className="w-4 h-4" />
           </button>
@@ -128,15 +109,15 @@ export const DeploymentBanner: React.FC = () => {
 
       {/* Expanded Step-by-Step Guide */}
       {isExpanded && (
-        <div className="mt-5 pt-4 border-t border-amber-400/40 dark:border-amber-500/30 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="mt-5 pt-4 border-t border-slate-200/80 dark:border-white/[0.06] space-y-4 animate-count">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {steps.map((s) => (
               <div
                 key={s.step}
-                className="p-3.5 rounded-xl bg-white dark:bg-black/40 border border-amber-400/50 dark:border-amber-500/20 space-y-2 shadow-sm"
+                className="p-3.5 rounded-xl bg-white/70 dark:bg-black/30 border border-slate-200/80 dark:border-white/[0.06] space-y-2 shadow-sm"
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-900 dark:text-white font-hud text-xs">
+                  <span className="font-heading font-bold text-xs text-slate-900 dark:text-white">
                     Step {s.step}: {s.title}
                   </span>
                   {s.linkUrl && (
@@ -144,21 +125,21 @@ export const DeploymentBanner: React.FC = () => {
                       href={s.linkUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-[10.5px] font-mono font-bold text-amber-900 dark:text-amber-300 hover:underline flex items-center gap-1"
+                      className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-0.5"
                     >
-                      <span>{s.linkText}</span>
+                      <span>Download</span>
                       <ExternalLink className="w-2.5 h-2.5" />
                     </a>
                   )}
                 </div>
 
-                <p className="text-[11.5px] text-slate-800 dark:text-slate-300 leading-relaxed font-medium">
+                <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
                   {s.detail}
                 </p>
 
                 {s.command && (
                   <div className="relative group mt-1">
-                    <pre className="p-2 rounded-lg bg-slate-900 text-cyan-300 font-mono text-[10.5px] overflow-x-auto border border-slate-800">
+                    <pre className="p-2 rounded-lg bg-slate-900 text-indigo-200 font-mono text-[11px] overflow-x-auto border border-slate-800">
                       {s.command}
                     </pre>
                     <button
@@ -178,8 +159,8 @@ export const DeploymentBanner: React.FC = () => {
             ))}
           </div>
 
-          <div className="p-3 rounded-xl bg-amber-100 dark:bg-amber-500/10 border border-amber-300 dark:border-amber-500/20 text-[11px] text-slate-900 dark:text-slate-300 flex items-center gap-2 font-medium">
-            <Shield className="w-4 h-4 text-amber-700 dark:text-amber-500 flex-shrink-0" />
+          <div className="p-3 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 text-xs text-slate-700 dark:text-slate-300 flex items-center gap-2 font-medium">
+            <Shield className="w-4 h-4 text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
             <span>
               <strong>Note:</strong> On Windows, Npcap enables zero-decryption SNI capture. On Linux/macOS, standard libpcap drivers work natively.
             </span>
