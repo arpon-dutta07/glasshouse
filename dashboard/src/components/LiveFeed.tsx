@@ -74,6 +74,13 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({ onEventsUpdate }) => {
   const onEventsUpdateRef = useRef(onEventsUpdate);
   onEventsUpdateRef.current = onEventsUpdate;
 
+  // Notify parent after events state settles (avoids setState-during-render)
+  useEffect(() => {
+    if (events.length > 0) {
+      onEventsUpdateRef.current?.(events);
+    }
+  }, [events]);
+
   const loadInitialData = useCallback(async () => {
     const [conns, status, blocked] = await Promise.all([
       fetchConnections({ limit: 40 }),
@@ -81,7 +88,6 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({ onEventsUpdate }) => {
       fetchBlockedDomains(),
     ]);
     setEvents(conns);
-    onEventsUpdateRef.current?.(conns);
     setBlockingStatus(status);
     setBlockedSet(new Set(blocked.map((b) => b.domain.toLowerCase())));
   }, []);
@@ -93,13 +99,10 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({ onEventsUpdate }) => {
     const ws = createLiveWebSocket((newEvent) => {
       if (isPausedRef.current) return;
       setEvents((prev) => {
-        // Avoid duplicate events if already present
         if (prev.some((e) => (e.id && e.id === newEvent.id) || (e.timestamp === newEvent.timestamp && e.sni_domain === newEvent.sni_domain))) {
           return prev;
         }
-        const updated = [newEvent, ...prev.slice(0, 80)];
-        onEventsUpdateRef.current?.(updated);
-        return updated;
+        return [newEvent, ...prev.slice(0, 80)];
       });
     });
 
@@ -117,11 +120,9 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({ onEventsUpdate }) => {
                 combinedMap.set(key, item);
               }
             }
-            const sorted = Array.from(combinedMap.values()).sort(
+            return Array.from(combinedMap.values()).sort(
               (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
             ).slice(0, 80);
-            onEventsUpdateRef.current?.(sorted);
-            return sorted;
           });
         }
       } catch {}
